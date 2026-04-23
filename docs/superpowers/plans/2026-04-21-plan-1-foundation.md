@@ -642,7 +642,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src-tauri/src/auth.rs`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: Auth-Modul mit Test**
+- [x] **Step 1: Auth-Modul mit Test**
 
 ```rust
 // src-tauri/src/auth.rs
@@ -725,7 +725,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: `mod auth;` in `lib.rs`**
+- [x] **Step 2: `mod auth;` in `lib.rs`**
 
 ```rust
 pub mod error;
@@ -734,7 +734,7 @@ pub mod config;
 pub mod auth;
 ```
 
-- [ ] **Step 3: Tests**
+- [x] **Step 3: Tests**
 
 ```bash
 cd src-tauri && cargo test --lib auth::
@@ -742,7 +742,7 @@ cd src-tauri && cargo test --lib auth::
 
 Expected: 3 Tests grün.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/auth.rs src-tauri/src/lib.rs
