@@ -1,0 +1,49 @@
+[package]
+name = "jiraso-reloaded"
+version = "0.1.0"
+description = "Verbalbeurteilungs-Software fuer das Schiller-Gymnasium Offenburg"
+authors = ["Schiller-Gymnasium Offenburg"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "jiraso_reloaded_lib"
+path = "src/lib.rs"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "jiraso-reloaded"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[features]
+default = ["desktop"]
+# `desktop` pulls in tauri + wry (which need webkit2gtk on Linux).
+# Disable this for running pure backend unit tests:
+#     cargo test --no-default-features --lib
+desktop = ["dep:tauri", "dep:tauri-plugin-shell", "dep:tauri-build"]
+
+[build-dependencies]
+# Optional via the `desktop` feature. When building tests without the
+# desktop feature, tauri_build is not invoked (see build.rs).
+tauri-build = { version = "2", features = [], optional = true }
+
+[dependencies]
+tauri = { version = "2", features = [], optional = true }
+tauri-plugin-shell = { version = "2", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
+rusqlite_migration = "1.2"
+argon2 = "0.5"
+rand = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"
