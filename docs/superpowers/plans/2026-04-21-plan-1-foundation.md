@@ -1896,7 +1896,7 @@ gh workflow run build.yml
 
 Expected: Action läuft durch (~8–12 Minuten), produziert ein Artifact `Jiraso-reloaded-Windows.zip`.
 
-- [ ] **Step 3: Artifact herunterladen und entpacken**
+- [x] **Step 3: Artifact herunterladen und entpacken** (Run 24833195772 grün, Artifact: https://api.github.com/repos/hibbes/Jiraso-reloaded/actions/artifacts/6600896107/zip)
 
 ```bash
 # nachdem der Run durch ist:
