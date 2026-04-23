@@ -3,8 +3,10 @@ name: Windows Build
 
 on:
   push:
-    branches: [main, feat/foundation]
+    branches: [main, 'feat/**']
     tags: ['v*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
