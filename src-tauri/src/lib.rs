@@ -14,6 +14,7 @@ pub mod db;
 pub mod config;
 pub mod auth;
 pub mod lock;
+pub mod backup;
 
 #[cfg(feature = "desktop")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

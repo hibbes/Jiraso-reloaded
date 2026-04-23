@@ -972,7 +972,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src-tauri/src/backup.rs`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: Backup-Modul mit Tests**
+- [x] **Step 1: Backup-Modul mit Tests**
 
 ```rust
 // src-tauri/src/backup.rs
@@ -1087,7 +1087,7 @@ mod tests {
 
 *Hinweis zum letzten Test:* `NaiveDate::from_ymd_opt(2025, 1, 32)` liefert `None`; die Schleife bricht implizit durch `.unwrap()` ab. Wir korrigieren:
 
-- [ ] **Step 2: Backup-Test fixen (2025-01 hat nur 31 Tage)**
+- [x] **Step 2: Backup-Test fixen (2025-01 hat nur 31 Tage)** (direkt mit korrektem Loop in Step 1 umgesetzt)
 
 Ersetze die Schleife im letzten Test durch:
 
@@ -1108,7 +1108,7 @@ Und entferne die letzten drei spezifischen `assert!`-Zeilen. Lasse nur:
         assert_eq!(count, 30);
 ```
 
-- [ ] **Step 3: `mod backup;` in `lib.rs`**
+- [x] **Step 3: `mod backup;` in `lib.rs`**
 
 ```rust
 pub mod error;
@@ -1119,7 +1119,7 @@ pub mod lock;
 pub mod backup;
 ```
 
-- [ ] **Step 4: Tests**
+- [x] **Step 4: Tests**
 
 ```bash
 cd src-tauri && cargo test --lib backup::
@@ -1127,7 +1127,7 @@ cd src-tauri && cargo test --lib backup::
 
 Expected: 4 Tests grün.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/backup.rs src-tauri/src/lib.rs
