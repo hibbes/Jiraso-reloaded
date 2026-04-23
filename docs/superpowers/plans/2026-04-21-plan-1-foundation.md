@@ -1832,7 +1832,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `.github/workflows/build.yml`
 
-- [ ] **Step 1: Workflow schreiben**
+- [x] **Step 1: Workflow schreiben** (`branches: [main, feat/foundation]` ergänzt, damit erster Build beim Push ausgelöst wird)
 
 ```yaml
 # .github/workflows/build.yml
@@ -1883,7 +1883,7 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
 ```
 
-- [ ] **Step 2: Workflow manuell auslösen**
+- [x] **Step 2: Workflow manuell auslösen**
 
 ```bash
 git add .github/workflows/build.yml
