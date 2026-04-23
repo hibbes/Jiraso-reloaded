@@ -1438,7 +1438,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src/routes/login/+page.svelte`, `src/routes/+page.svelte`, `src/routes/+layout.svelte`, `src/routes/+layout.ts`
 - Modify: `src/app.css`
 
-- [ ] **Step 1: Layout-Disable für SSR**
+- [x] **Step 1: Layout-Disable für SSR**
 
 ```typescript
 // src/routes/+layout.ts
@@ -1446,7 +1446,7 @@ export const ssr = false;
 export const prerender = false;
 ```
 
-- [ ] **Step 2: `+layout.svelte` mit Header**
+- [x] **Step 2: `+layout.svelte` mit Header**
 
 ```svelte
 <!-- src/routes/+layout.svelte -->
@@ -1510,7 +1510,7 @@ export const prerender = false;
 </style>
 ```
 
-- [ ] **Step 3: Root-Seite redirectet je nach Session**
+- [x] **Step 3: Root-Seite redirectet je nach Session** (direkt mit `needsSetup`-Check aus Task 14)
 
 ```svelte
 <!-- src/routes/+page.svelte -->
@@ -1527,7 +1527,7 @@ export const prerender = false;
 <p>Lade…</p>
 ```
 
-- [ ] **Step 4: Login-Seite**
+- [x] **Step 4: Login-Seite**
 
 ```svelte
 <!-- src/routes/login/+page.svelte -->
@@ -1586,7 +1586,7 @@ export const prerender = false;
 </style>
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/routes src/app.css
