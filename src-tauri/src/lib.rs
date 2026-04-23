@@ -9,6 +9,8 @@
 // `commands` module. On Linux this pulls webkit2gtk — CI provides it,
 // local dev without system libs should disable the feature.
 
+pub mod error;
+
 #[cfg(feature = "desktop")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

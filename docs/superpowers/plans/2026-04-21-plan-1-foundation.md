@@ -183,7 +183,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `src-tauri/src/error.rs`
 
-- [ ] **Step 1: Datei anlegen**
+- [x] **Step 1: Datei anlegen**
 
 ```rust
 // src-tauri/src/error.rs
@@ -242,7 +242,7 @@ impl Serialize for AppError {
 pub type AppResult<T> = Result<T, AppError>;
 ```
 
-- [ ] **Step 2: `mod error;` in `lib.rs` exportieren**
+- [x] **Step 2: `mod error;` in `lib.rs` exportieren**
 
 Ersetze `src-tauri/src/lib.rs` (oder lege an) mit:
 
@@ -250,7 +250,7 @@ Ersetze `src-tauri/src/lib.rs` (oder lege an) mit:
 pub mod error;
 ```
 
-- [ ] **Step 3: `cargo check`**
+- [x] **Step 3: `cargo check`**
 
 ```bash
 cd src-tauri && cargo check
@@ -258,7 +258,7 @@ cd src-tauri && cargo check
 
 Expected: ok.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/error.rs src-tauri/src/lib.rs
