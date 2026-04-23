@@ -24,31 +24,54 @@
   }
 </script>
 
-<div class="login">
-  <h1>Anmelden</h1>
-  <form onsubmit={submit}>
-    <label>
-      Passwort
-      <input
-        type="password"
-        bind:value={passwort}
-        autocomplete="current-password"
-        required
-      />
-    </label>
-    <button type="submit" disabled={laufend}>
-      {laufend ? 'Prüfe…' : 'Einloggen'}
-    </button>
-    {#if fehler}<p class="err">{fehler}</p>{/if}
-  </form>
+<div class="login-wrap">
+  <div class="card login-card">
+    <h1>Anmelden</h1>
+    <p class="hint text-muted">
+      Bitte Rollen-Passwort eingeben (Fachlehrer, Klassenlehrer, Administrator).
+    </p>
+    <form onsubmit={submit}>
+      <label>
+        Passwort
+        <input
+          type="password"
+          bind:value={passwort}
+          autocomplete="current-password"
+          required
+        />
+      </label>
+      <button type="submit" disabled={laufend || !passwort}>
+        {laufend ? 'Prüfe …' : 'Einloggen'}
+      </button>
+      {#if fehler}
+        <p class="err" role="alert">{fehler}</p>
+      {/if}
+    </form>
+  </div>
 </div>
 
 <style>
-  .login { max-width: 320px; margin: 4rem auto; font-family: 'Segoe UI', sans-serif; }
-  h1 { margin-bottom: 1rem; }
-  form { display: flex; flex-direction: column; gap: 0.8rem; }
-  label { display: flex; flex-direction: column; gap: 0.3rem; }
-  input { padding: 0.5rem; font-size: 1rem; }
-  button { padding: 0.6rem; font-size: 1rem; cursor: pointer; }
-  .err { color: #b00; margin-top: 0.5rem; }
+  .login-wrap {
+    display: flex;
+    justify-content: center;
+    padding-top: 3.5rem;
+  }
+  .login-card {
+    width: 100%;
+    max-width: 380px;
+  }
+  .hint {
+    margin: 0 0 1.2rem 0;
+    font-size: 0.88rem;
+  }
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .err {
+    color: var(--sg-danger);
+    margin: 0.25rem 0 0;
+    font-size: 0.88rem;
+  }
 </style>

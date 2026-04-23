@@ -1,0 +1,180 @@
+/* ──────────────────────────────────────────────────────────────────────
+   Schiller-Gymnasium Corporate Identity — Design Tokens + Base Styles
+   Übernommen aus www.schiller-offenburg.de (Divi-Child-Theme, April 2026).
+   Hauptfarbe Petrol, Akzentfarbe Gold, Font Plus Jakarta Sans.
+   ────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Farb-Tokens (identisch zu Schiller-Homepage) */
+  --sg-petrol:       #004058;
+  --sg-petrol-hover: #00567a;
+  --sg-petrol-light: #00638a;
+  --sg-gold:         #ffd566;
+  --sg-gold-soft:    rgba(255, 213, 102, 0.25);
+  --sg-bg-card:      #f7f9fb;
+  --sg-bg-light:     #f5f8fa;
+  --sg-border:       #e2e8ef;
+  --sg-text:         #3a3a3a;
+  --sg-text-light:   #555;
+  --sg-meta:         #7a7a7a;
+  --sg-meta-light:   #888;
+  --sg-danger:       #b8294a;
+  --sg-success:      #2a7a4a;
+  --sg-shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --sg-shadow-hover: 0 8px 24px rgba(0, 64, 88, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+
+  /* Typografie-Tokens */
+  --sg-font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont,
+                  'Segoe UI', Roboto, sans-serif;
+  --sg-font-mono: 'SF Mono', 'Fira Code', monospace;
+
+  /* Layout-Tokens */
+  --sg-radius-sm: 6px;
+  --sg-radius-md: 10px;
+  --sg-radius-lg: 14px;
+  --sg-space-xs: 0.4rem;
+  --sg-space-sm: 0.8rem;
+  --sg-space-md: 1.2rem;
+  --sg-space-lg: 1.8rem;
+}
+
+/* Reset + Base */
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  margin: 0;
+  font-family: var(--sg-font-body);
+  font-weight: 400;
+  color: var(--sg-text);
+  background: var(--sg-bg-light);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--sg-font-body);
+  color: var(--sg-petrol);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 var(--sg-space-sm) 0;
+}
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1.4rem; }
+h3 { font-size: 1.15rem; }
+
+a {
+  color: var(--sg-petrol);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+a:hover { color: var(--sg-petrol-hover); text-decoration: underline; }
+
+/* Buttons — Corporate-Pill wie auf der Homepage */
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sg-space-xs);
+  padding: 0.55rem 1.4rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--sg-petrol);
+  color: #fff;
+  font-family: var(--sg-font-body);
+  font-weight: 500;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+button:hover:not(:disabled),
+.btn:hover:not(:disabled) {
+  background: var(--sg-petrol-hover);
+  box-shadow: var(--sg-shadow-sm);
+}
+button:active:not(:disabled),
+.btn:active:not(:disabled) { transform: translateY(1px); }
+button:disabled,
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+button.btn-secondary,
+.btn-secondary {
+  background: transparent;
+  color: var(--sg-petrol);
+  border: 1.5px solid var(--sg-petrol);
+}
+button.btn-secondary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled) {
+  background: var(--sg-petrol);
+  color: #fff;
+}
+
+/* Inputs */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+textarea,
+select {
+  font-family: var(--sg-font-body);
+  font-size: 0.95rem;
+  padding: 0.55rem 0.8rem;
+  border: 1.5px solid var(--sg-border);
+  border-radius: var(--sg-radius-sm);
+  background: #fff;
+  color: var(--sg-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--sg-petrol);
+  box-shadow: 0 0 0 3px rgba(0, 64, 88, 0.12);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--sg-text-light);
+  font-weight: 500;
+}
+
+/* Card-Komponente (entspricht der .hp-card auf der Homepage) */
+.card {
+  background: #fff;
+  border: 1px solid var(--sg-border);
+  border-radius: var(--sg-radius-lg);
+  padding: var(--sg-space-lg) var(--sg-space-md);
+  box-shadow: var(--sg-shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card:hover { box-shadow: var(--sg-shadow-hover); }
+
+/* Badge (für Rollen-Anzeige etc.) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: var(--sg-bg-card);
+  color: var(--sg-petrol);
+  border: 1px solid var(--sg-border);
+}
+.badge-gold { background: var(--sg-gold-soft); color: var(--sg-petrol); border-color: transparent; }
+.badge-petrol { background: var(--sg-petrol); color: #fff; border-color: transparent; }
+.badge-danger { background: var(--sg-danger); color: #fff; border-color: transparent; }
+.badge-success { background: var(--sg-success); color: #fff; border-color: transparent; }
+
+/* Utility */
+.text-muted { color: var(--sg-meta); }
+.text-small { font-size: 0.85rem; }
+.mono { font-family: var(--sg-font-mono); }
