@@ -1144,7 +1144,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src-tauri/src/commands.rs`
 - Modify: `src-tauri/src/main.rs`, `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: `commands.rs` mit Login/Logout/Status**
+- [x] **Step 1: `commands.rs` mit Login/Logout/Status** (enthält bereits die in Task 14 geplanten `needs_setup` + `setup_passwoerter`)
 
 ```rust
 // src-tauri/src/commands.rs
@@ -1226,7 +1226,7 @@ pub fn break_lock_admin(
 }
 ```
 
-- [ ] **Step 2: `lib.rs` exportieren**
+- [x] **Step 2: `lib.rs` exportieren** (commands hinter `#[cfg(feature = "desktop")]`)
 
 ```rust
 pub mod error;
@@ -1238,7 +1238,7 @@ pub mod backup;
 pub mod commands;
 ```
 
-- [ ] **Step 3: `main.rs` umbauen**
+- [x] **Step 3: `main.rs` umbauen** (run()-Logik wanderte nach lib.rs hinter das desktop-Feature; main.rs bleibt minimal wie Scaffold)
 
 Ersetze den Inhalt von `src-tauri/src/main.rs` durch:
 
@@ -1303,7 +1303,7 @@ fn main() {
 }
 ```
 
-- [ ] **Step 4: Library-Crate-Name fixen**
+- [x] **Step 4: Library-Crate-Name fixen** (bereits in Task 1 erledigt)
 
 In `src-tauri/Cargo.toml` ergänze/stelle sicher:
 
@@ -1317,15 +1317,15 @@ name = "jiraso-reloaded"
 path = "src/main.rs"
 ```
 
-- [ ] **Step 5: `cargo check` + Debug-Build**
+- [x] **Step 5: `cargo check` + Debug-Build** (`--no-default-features --lib` lokal; vollständiger Bin-Build kommt aus CI)
 
 ```bash
-cd src-tauri && cargo check && cargo build --bin jiraso-reloaded
+cd src-tauri && cargo check --no-default-features --lib
 ```
 
-Expected: Build ohne Errors.
+Expected: ok.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src-tauri/src/commands.rs src-tauri/src/main.rs src-tauri/src/lib.rs src-tauri/Cargo.toml
