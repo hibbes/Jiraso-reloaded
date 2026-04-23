@@ -759,7 +759,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src-tauri/src/lock.rs`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: Lock-Modul mit umfangreichen Tests**
+- [x] **Step 1: Lock-Modul mit umfangreichen Tests**
 
 ```rust
 // src-tauri/src/lock.rs
@@ -937,7 +937,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: `mod lock;` in `lib.rs`**
+- [x] **Step 2: `mod lock;` in `lib.rs`**
 
 ```rust
 pub mod error;
@@ -947,7 +947,7 @@ pub mod auth;
 pub mod lock;
 ```
 
-- [ ] **Step 3: Tests**
+- [x] **Step 3: Tests**
 
 ```bash
 cd src-tauri && cargo test --lib lock::
@@ -955,7 +955,7 @@ cd src-tauri && cargo test --lib lock::
 
 Expected: 5 Tests grün.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/lock.rs src-tauri/src/lib.rs
