@@ -274,7 +274,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `src-tauri/src/migrations/001_initial.sql`
 
-- [ ] **Step 1: Schema-Datei schreiben**
+- [x] **Step 1: Schema-Datei schreiben**
 
 ```sql
 -- src-tauri/src/migrations/001_initial.sql
@@ -341,7 +341,7 @@ CREATE TABLE bemerkung (
 );
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src-tauri/src/migrations/001_initial.sql
