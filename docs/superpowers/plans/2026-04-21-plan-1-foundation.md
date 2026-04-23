@@ -1670,7 +1670,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Modify: `src/routes/+page.svelte` (Redirect nach `/setup`, wenn nötig)
 - Modify: `src/lib/api.ts` (neue API-Funktionen)
 
-- [ ] **Step 1: Rust-Command zum Setzen der drei Passwörter**
+- [x] **Step 1: Rust-Command zum Setzen der drei Passwörter** (bereits in Task 10 umgesetzt)
 
 Ergänze in `src-tauri/src/commands.rs` am Ende:
 
@@ -1702,7 +1702,7 @@ pub fn setup_passwoerter(
 }
 ```
 
-- [ ] **Step 2: Commands im Handler registrieren**
+- [x] **Step 2: Commands im Handler registrieren** (bereits in Task 10 umgesetzt)
 
 In `src-tauri/src/main.rs`, erweitere `invoke_handler`:
 
@@ -1719,7 +1719,7 @@ In `src-tauri/src/main.rs`, erweitere `invoke_handler`:
 ])
 ```
 
-- [ ] **Step 3: API-Wrapper erweitern**
+- [x] **Step 3: API-Wrapper erweitern** (bereits in Task 11 umgesetzt)
 
 Ergänze `src/lib/api.ts`:
 
@@ -1737,7 +1737,7 @@ export async function setupPasswoerter(
 }
 ```
 
-- [ ] **Step 4: Root-Redirect erweitern**
+- [x] **Step 4: Root-Redirect erweitern** (bereits in Task 12 umgesetzt)
 
 Ersetze `src/routes/+page.svelte`:
 
@@ -1758,7 +1758,7 @@ Ersetze `src/routes/+page.svelte`:
 <p>Lade…</p>
 ```
 
-- [ ] **Step 5: Setup-Seite**
+- [x] **Step 5: Setup-Seite**
 
 ```svelte
 <!-- src/routes/setup/+page.svelte -->
@@ -1804,7 +1804,7 @@ Gib sie danach persönlich an die jeweiligen Kolleg:innen weiter.</p>
 </style>
 ```
 
-- [ ] **Step 6: Debug-Build + manueller Test**
+- [x] **Step 6: Debug-Build + manueller Test** (lokal nicht möglich mangels webkit2gtk; Test via CI-Build + Windows-Smoke-Checklist)
 
 ```bash
 npm run tauri dev
@@ -1816,7 +1816,7 @@ Expected:
 - Mit dem neuen Admin-Passwort einloggen → Dashboard zeigt alle 6 Kacheln
 - Mit Fachlehrer-Passwort → nur „Bewertung eingeben"
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
