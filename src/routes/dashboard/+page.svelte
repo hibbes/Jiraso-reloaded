@@ -25,6 +25,13 @@
 <h1>Start</h1>
 <p class="hint">Die Funktionen werden in den folgenden Plänen (2–5) implementiert.</p>
 
+{#if session.rolle === 'administrator'}
+  <a href="/admin/stammdaten" class="admin-tile">
+    <strong>Stammdaten-Import</strong>
+    <span>XLSX aus ASV-BW einspielen</span>
+  </a>
+{/if}
+
 <div class="grid">
   {#each kacheln as k}
     <div class="kachel">
@@ -40,4 +47,15 @@
   .kachel { background: #f4f4f6; border: 1px solid #d6d6da; border-radius: 4px; padding: 1rem 1.2rem; }
   .kachel h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
   .tbd { color: #999; font-size: 0.85rem; margin: 0; }
+  .admin-tile {
+    display: inline-block;
+    padding: 1rem 1.5rem;
+    border: 1px solid #888;
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    margin-bottom: 1.5rem;
+  }
+  .admin-tile strong { display: block; }
+  .admin-tile span { font-size: 0.9em; color: #666; }
 </style>
