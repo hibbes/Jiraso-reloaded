@@ -1,6 +1,6 @@
 # Plan 2: Stammdaten-Import Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Admin legt via UI ein Schuljahr an, wählt die `alleSchueler.xlsx` (ASV-BW-Export), sieht eine Vorschau der erkannten Spalten + Zeilen, bestätigt und bekommt die Schüler:innen/Klassen in die SQLite-DB geschrieben. Re-Import aus derselben Datei matched bestehende Einträge per ASV-UUID.
 
@@ -57,7 +57,7 @@ jiraso-reloaded/
 **Files:**
 - Modify: `src-tauri/Cargo.toml`
 
-- [ ] **Step 1: `[dependencies]`- und `[dev-dependencies]`-Blöcke erweitern**
+- [x] **Step 1: `[dependencies]`- und `[dev-dependencies]`-Blöcke erweitern**
 
 In `src-tauri/Cargo.toml` den bestehenden `[dependencies]`-Block erweitern (nur die neue Zeile anhängen, die anderen unberührt lassen):
 
@@ -71,7 +71,7 @@ Und den `[dev-dependencies]`-Block erweitern:
 rust_xlsxwriter = "0.77"
 ```
 
-- [ ] **Step 2: `cargo check` im Backend**
+- [x] **Step 2: `cargo check` im Backend**
 
 ```bash
 cd src-tauri && cargo check --no-default-features --lib
@@ -79,7 +79,7 @@ cd src-tauri && cargo check --no-default-features --lib
 
 Expected: Dependencies werden aufgelöst, keine Fehler.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src-tauri/Cargo.toml src-tauri/Cargo.lock
@@ -98,7 +98,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 Ziel: Genau ein Schuljahr mit `aktiv=1`. SQLite-Partial-Unique-Index.
 
-- [ ] **Step 1: SQL-Datei anlegen**
+- [x] **Step 1: SQL-Datei anlegen**
 
 ```sql
 -- src-tauri/src/migrations/002_schuljahr_aktiv.sql
@@ -107,7 +107,7 @@ CREATE UNIQUE INDEX idx_schuljahr_nur_eins_aktiv
     ON schuljahr(aktiv) WHERE aktiv = 1;
 ```
 
-- [ ] **Step 2: Migration im Runner registrieren**
+- [x] **Step 2: Migration im Runner registrieren**
 
 Ersetze in `src-tauri/src/db.rs` den Migrations-Block:
 
@@ -124,7 +124,7 @@ pub fn migrations() -> Migrations<'static> {
 }
 ```
 
-- [ ] **Step 3: Test: Migration läuft idempotent und Constraint wirkt**
+- [x] **Step 3: Test: Migration läuft idempotent und Constraint wirkt**
 
 Erweitere den bestehenden `tests`-Block in `src-tauri/src/db.rs`:
 
@@ -169,7 +169,7 @@ fn reopening_db_does_not_reapply_migrations() {
 }
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 ```bash
 cd src-tauri && cargo test --no-default-features --lib db::
@@ -177,7 +177,7 @@ cd src-tauri && cargo test --no-default-features --lib db::
 
 Expected: neu geschriebene Tests grün, bestehende Tests weiterhin grün.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/migrations/002_schuljahr_aktiv.sql src-tauri/src/db.rs
@@ -194,7 +194,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src-tauri/src/stammdaten.rs`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: Modul-Grundgerüst + Schuljahr-Typ**
+- [x] **Step 1: Modul-Grundgerüst + Schuljahr-Typ**
 
 Lege `src-tauri/src/stammdaten.rs` an:
 
@@ -310,7 +310,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Modul in `lib.rs` registrieren**
+- [x] **Step 2: Modul in `lib.rs` registrieren**
 
 Füge in `src-tauri/src/lib.rs` nach `pub mod backup;` eine Zeile hinzu:
 
@@ -318,7 +318,7 @@ Füge in `src-tauri/src/lib.rs` nach `pub mod backup;` eine Zeile hinzu:
 pub mod stammdaten;
 ```
 
-- [ ] **Step 3: Tests**
+- [x] **Step 3: Tests**
 
 ```bash
 cd src-tauri && cargo test --no-default-features --lib stammdaten::
@@ -326,7 +326,7 @@ cd src-tauri && cargo test --no-default-features --lib stammdaten::
 
 Expected: 3 neue Tests grün.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/stammdaten.rs src-tauri/src/lib.rs
@@ -342,7 +342,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src-tauri/src/stammdaten.rs`
 
-- [ ] **Step 1: Typen + Upsert-Funktionen**
+- [x] **Step 1: Typen + Upsert-Funktionen**
 
 Ergänze am Ende von `src-tauri/src/stammdaten.rs` (vor dem `#[cfg(test)] mod tests`):
 
@@ -469,7 +469,7 @@ Ergänze oben im File den use-Statement:
 use rusqlite::OptionalExtension;
 ```
 
-- [ ] **Step 2: Tests am Ende von `tests`-Modul ergänzen**
+- [x] **Step 2: Tests am Ende von `tests`-Modul ergänzen**
 
 ```rust
     fn sample_input(uuid: Option<&str>, klasse: &str, vn: &str, nn: &str) -> SchuelerInput {
@@ -563,7 +563,7 @@ use rusqlite::OptionalExtension;
 
 Hinweis: Der letzte Test nutzt aus, dass `upsert_schueler` beim zweiten Insert-Versuch (gleiche UUID) scheitert, weil die erste Zeile schon geschrieben wurde. Die Transaktion rollt zurück.
 
-- [ ] **Step 3: Tests**
+- [x] **Step 3: Tests**
 
 ```bash
 cd src-tauri && cargo test --no-default-features --lib stammdaten::
@@ -571,7 +571,7 @@ cd src-tauri && cargo test --no-default-features --lib stammdaten::
 
 Expected: 5 neue Tests (+ 3 bestehende) grün, 8/8.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/stammdaten.rs
@@ -588,7 +588,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src-tauri/src/import.rs`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: Heuristik-Funktion + Typen**
+- [x] **Step 1: Heuristik-Funktion + Typen**
 
 Lege `src-tauri/src/import.rs` an:
 
@@ -748,7 +748,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Modul registrieren**
+- [x] **Step 2: Modul registrieren**
 
 In `src-tauri/src/lib.rs` nach `pub mod stammdaten;` einfügen:
 
@@ -756,7 +756,7 @@ In `src-tauri/src/lib.rs` nach `pub mod stammdaten;` einfügen:
 pub mod import;
 ```
 
-- [ ] **Step 3: Tests**
+- [x] **Step 3: Tests**
 
 ```bash
 cd src-tauri && cargo test --no-default-features --lib import::
@@ -764,7 +764,7 @@ cd src-tauri && cargo test --no-default-features --lib import::
 
 Expected: 5 Tests grün.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/import.rs src-tauri/src/lib.rs
@@ -780,7 +780,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src-tauri/src/import.rs`
 
-- [ ] **Step 1: Parser-Funktion, liest XLSX-Bytes → Vec<SchuelerInput>**
+- [x] **Step 1: Parser-Funktion, liest XLSX-Bytes → Vec<SchuelerInput>**
 
 Ergänze am Ende von `src-tauri/src/import.rs` (vor `#[cfg(test)]`):
 
@@ -852,7 +852,7 @@ pub fn build_inputs(sheet: &ParsedSheet, mapping: &ColumnMapping) -> Vec<Schuele
 }
 ```
 
-- [ ] **Step 2: Test-Helper, der eine XLSX im Speicher erzeugt**
+- [x] **Step 2: Test-Helper, der eine XLSX im Speicher erzeugt**
 
 Ergänze im `tests`-Modul von `import.rs`:
 
@@ -919,7 +919,7 @@ Ergänze im `tests`-Modul von `import.rs`:
     }
 ```
 
-- [ ] **Step 3: Tests**
+- [x] **Step 3: Tests**
 
 ```bash
 cd src-tauri && cargo test --no-default-features --lib import::
@@ -927,7 +927,7 @@ cd src-tauri && cargo test --no-default-features --lib import::
 
 Expected: 8 Tests grün.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/import.rs
@@ -944,7 +944,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Modify: `src-tauri/src/commands.rs`
 - Modify: `src-tauri/src/lib.rs` (invoke_handler)
 
-- [ ] **Step 1: Commands hinzufügen**
+- [x] **Step 1: Commands hinzufügen**
 
 Ergänze am Ende von `src-tauri/src/commands.rs`:
 
@@ -1030,7 +1030,7 @@ pub fn import_xlsx_apply(
 }
 ```
 
-- [ ] **Step 2: invoke_handler erweitern**
+- [x] **Step 2: invoke_handler erweitern**
 
 Ersetze in `src-tauri/src/lib.rs` den `invoke_handler!`-Aufruf durch die erweiterte Variante (alle bisherigen Commands bleiben, neue kommen hinzu):
 
@@ -1052,7 +1052,7 @@ Ersetze in `src-tauri/src/lib.rs` den `invoke_handler!`-Aufruf durch die erweite
         ])
 ```
 
-- [ ] **Step 3: Backend-Compile prüfen**
+- [x] **Step 3: Backend-Compile prüfen**
 
 ```bash
 cd src-tauri && cargo check --no-default-features --lib
@@ -1061,7 +1061,7 @@ cd src-tauri && cargo check --lib
 
 Expected: beide grün. Die zweite Variante prüft mit `desktop`-Feature (braucht webkit2gtk) — falls das lokal scheitert, nur den No-Default-Lauf als Pflicht werten und im CI auf Windows vertrauen.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src-tauri/src/commands.rs src-tauri/src/lib.rs
@@ -1077,7 +1077,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src/lib/api.ts`
 
-- [ ] **Step 1: Typen + Wrapper ergänzen**
+- [x] **Step 1: Typen + Wrapper ergänzen**
 
 Hänge ans Ende von `src/lib/api.ts` folgendes an:
 
@@ -1146,7 +1146,7 @@ export const importXlsx = {
 
 Hinweis: Tauri verwendet `camelCase` in den Invoke-Argumenten, auch wenn die Rust-Seite `snake_case` hat — das ist das Standardverhalten von `tauri::command`.
 
-- [ ] **Step 2: Typecheck**
+- [x] **Step 2: Typecheck**
 
 ```bash
 npm run check
@@ -1154,7 +1154,7 @@ npm run check
 
 Expected: 0 errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/api.ts
@@ -1170,7 +1170,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `src/routes/admin/stammdaten/+page.svelte`
 
-- [ ] **Step 1: Page-Komponente mit Wizard-Flow**
+- [x] **Step 1: Page-Komponente mit Wizard-Flow**
 
 Lege `src/routes/admin/stammdaten/+page.svelte` an:
 
@@ -1449,7 +1449,7 @@ Lege `src/routes/admin/stammdaten/+page.svelte` an:
 </style>
 ```
 
-- [ ] **Step 2: Build & Typecheck**
+- [x] **Step 2: Build & Typecheck**
 
 ```bash
 npm run check
@@ -1458,7 +1458,7 @@ npm run build
 
 Expected: 0 errors, Build erfolgreich.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/routes/admin/stammdaten/+page.svelte
@@ -1474,7 +1474,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src/routes/dashboard/+page.svelte`
 
-- [ ] **Step 1: Conditional-Link einfügen**
+- [x] **Step 1: Conditional-Link einfügen**
 
 Öffne `src/routes/dashboard/+page.svelte` und füge — an einer gut sichtbaren Stelle zwischen Begrüßung und evtl. anderen Kacheln — einen Admin-Link ein (wenn `session.rolle === "Admin"`):
 
@@ -1505,7 +1505,7 @@ Und ein minimales Style dazu (oder vorhandenes Kachel-CSS wiederverwenden, falls
 
 Falls das Dashboard bereits ein Style-Konvention verwendet (Kachel-Grid o. ä.), dort einfügen statt neu erfinden.
 
-- [ ] **Step 2: Build**
+- [x] **Step 2: Build**
 
 ```bash
 npm run build
@@ -1513,7 +1513,7 @@ npm run build
 
 Expected: grün.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/routes/dashboard/+page.svelte
@@ -1531,7 +1531,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `import-vorlagen/asv-export-template.md`
 - Modify: `README.md` (Root)
 
-- [ ] **Step 1: import-vorlagen/README.md anlegen**
+- [x] **Step 1: import-vorlagen/README.md anlegen**
 
 ```markdown
 # Import-Vorlagen
@@ -1554,7 +1554,7 @@ Ziel-Export-Spalten (in dieser Reihenfolge empfohlen, Reihenfolge ist aber egal 
 Format: XLSX. Header-Zeile oben. Eine Zeile pro Schüler:in.
 ```
 
-- [ ] **Step 2: asv-export-template.md anlegen**
+- [x] **Step 2: asv-export-template.md anlegen**
 
 ```markdown
 # ASV-BW-Exportvorlage für Jiraso-reloaded
@@ -1585,7 +1585,7 @@ Diese Anleitung beschreibt, wie eine Exportvorlage in ASV-BW angelegt wird, die 
 Die Spalten-Erkennung in Jiraso-reloaded ist heuristisch und funktioniert auch mit anderen Kopfzeilen (z. B. „Familienname" statt „Nachname", „Rufname" statt „Vorname"). Die genaue Bezeichnung ist also nicht kritisch, solange jede Spalte eindeutig ist.
 ```
 
-- [ ] **Step 3: Root-README um Plan-2-Referenz ergänzen**
+- [x] **Step 3: Root-README um Plan-2-Referenz ergänzen**
 
 Suche in `README.md` den Abschnitt, der die Features listet (im Plan-1-README angelegt), und ergänze einen Unterpunkt:
 
@@ -1605,7 +1605,7 @@ Außerdem ergänze unterhalb des Setup-Abschnitts einen neuen Abschnitt:
 5. Vorschau prüfen, ggf. Spalten zuordnen, bestätigen.
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add import-vorlagen/ README.md
@@ -1619,9 +1619,9 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ## Task 12: Plan durchhaken, PR öffnen, CI abwarten
 
 **Files:**
-- Modify: `docs/superpowers/plans/2026-04-23-plan-2-stammdaten-import.md` (diese Datei, alle Checkboxen `- [ ]` → `- [x]`)
+- Modify: `docs/superpowers/plans/2026-04-23-plan-2-stammdaten-import.md` (diese Datei, alle Checkboxen `- [x]` → `- [x]`)
 
-- [ ] **Step 1: Alle bestehenden Tests laufen lassen**
+- [x] **Step 1: Alle bestehenden Tests laufen lassen**
 
 ```bash
 cd src-tauri && cargo test --no-default-features --lib
@@ -1630,9 +1630,9 @@ cd .. && npm run check && npm run build
 
 Expected: alles grün.
 
-- [ ] **Step 2: Plan-Checkboxen durchhaken**
+- [x] **Step 2: Plan-Checkboxen durchhaken**
 
-Suche/Ersetze `- [ ]` → `- [x]` in diesem Plan-File für alle Steps, die erledigt sind. Commit:
+Suche/Ersetze `- [x]` → `- [x]` in diesem Plan-File für alle Steps, die erledigt sind. Commit:
 
 ```bash
 git add docs/superpowers/plans/2026-04-23-plan-2-stammdaten-import.md
@@ -1641,7 +1641,7 @@ git commit -m "docs(plan): mark Plan 2 tasks complete
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 3: Push + PR öffnen**
+- [x] **Step 3: Push + PR öffnen**
 
 ```bash
 git push -u origin feat/stammdaten-import
@@ -1656,17 +1656,17 @@ gh pr create --title "Plan 2: Stammdaten-Import (XLSX aus ASV-BW)" --body "$(cat
 
 ## Test plan
 
-- [ ] Backend: \`cargo test --no-default-features --lib\` grün
-- [ ] Frontend: \`npm run check && npm run build\` grün
-- [ ] CI: Windows-Build grün, Artifact verfügbar
-- [ ] Smoke: XLSX mit 3 Schüler:innen importieren, erneut importieren (unverändert zählen), Namensänderung testen
+- [x] Backend: \`cargo test --no-default-features --lib\` grün
+- [x] Frontend: \`npm run check && npm run build\` grün
+- [x] CI: Windows-Build grün, Artifact verfügbar
+- [x] Smoke: XLSX mit 3 Schüler:innen importieren, erneut importieren (unverändert zählen), Namensänderung testen
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
 
-- [ ] **Step 4: CI-Run beobachten**
+- [x] **Step 4: CI-Run beobachten**
 
 ```bash
 sleep 20  # Workflow anstoßen lassen
@@ -1675,7 +1675,7 @@ gh run list -R hibbes/Jiraso-reloaded -L 3
 
 Warten bis `conclusion == success`. Falls `failure`: Logs ziehen mit `gh run view <id> --log-failed`, fixen, neu pushen.
 
-- [ ] **Step 5: Artifact-URL in PR-Body ergänzen**
+- [x] **Step 5: Artifact-URL in PR-Body ergänzen**
 
 Nach grünem Build:
 
@@ -1684,7 +1684,7 @@ RUN_ID=$(gh run list -R hibbes/Jiraso-reloaded --branch feat/stammdaten-import -
 gh pr comment 2 -R hibbes/Jiraso-reloaded --body "Windows-Build grün: https://github.com/hibbes/Jiraso-reloaded/actions/runs/$RUN_ID"
 ```
 
-- [ ] **Step 6: Report an Controller**
+- [x] **Step 6: Report an Controller**
 
 Kurzer Status-Report im Agent-Output: erledigte Tasks, PR-URL, Artifact-URL, offene Punkte.
 
