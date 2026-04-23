@@ -11,6 +11,7 @@
 
 pub mod error;
 pub mod db;
+pub mod config;
 
 #[cfg(feature = "desktop")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -472,7 +472,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `config.toml.example`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: `config.toml.example` schreiben**
+- [x] **Step 1: `config.toml.example` schreiben**
 
 ```toml
 # config.toml.example — in config.toml umbenennen und Passwort-Hashes füllen
@@ -497,7 +497,7 @@ stale_hours = 8
 max_parallel = 2
 ```
 
-- [ ] **Step 2: `src-tauri/src/config.rs` mit Tests**
+- [x] **Step 2: `src-tauri/src/config.rs` mit Tests**
 
 ```rust
 // src-tauri/src/config.rs
@@ -609,7 +609,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 3: `mod config;` in `lib.rs`**
+- [x] **Step 3: `mod config;` in `lib.rs`**
 
 ```rust
 pub mod error;
@@ -617,7 +617,7 @@ pub mod db;
 pub mod config;
 ```
 
-- [ ] **Step 4: Tests laufen lassen**
+- [x] **Step 4: Tests laufen lassen**
 
 ```bash
 cd src-tauri && cargo test --lib config::
@@ -625,7 +625,7 @@ cd src-tauri && cargo test --lib config::
 
 Expected: 2 Tests grün.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src-tauri/src/config.rs src-tauri/src/lib.rs config.toml.example

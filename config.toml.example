@@ -1,0 +1,24 @@
+# config.toml.example — in config.toml umbenennen und Passwort-Hashes fuellen
+#
+# Die Passwort-Hashes werden normalerweise beim ersten Start des
+# Setup-Wizards gesetzt. Wer hier manuell Hashes eintraegt, muss
+# Argon2id-Strings liefern (Format: $argon2id$v=19$m=...,t=...,p=...$...).
+
+schule = "Schiller-Gymnasium Offenburg"
+aktuelles_schuljahr = "2025/26"
+
+# Passwort-Hashes werden beim ersten Start vom Wizard gesetzt.
+# Nicht manuell editieren, wenn nicht unbedingt noetig.
+[passwoerter]
+fachlehrer    = ""
+klassenlehrer = ""
+administrator = ""
+
+[goodies]
+enabled = true
+mode    = "random"  # random | zitat_only | fun_fact_only | achievement_only
+
+[lock]
+# Sessions werden automatisch verworfen, wenn sie aelter als stale_hours sind
+stale_hours = 8
+max_parallel = 2
