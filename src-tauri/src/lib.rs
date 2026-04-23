@@ -10,6 +10,7 @@
 // local dev without system libs should disable the feature.
 
 pub mod error;
+pub mod db;
 
 #[cfg(feature = "desktop")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

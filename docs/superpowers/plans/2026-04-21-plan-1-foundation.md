@@ -358,7 +358,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src-tauri/src/db.rs`
 - Modify: `src-tauri/src/lib.rs`
 
-- [ ] **Step 1: Test zuerst schreiben**
+- [x] **Step 1: Test zuerst schreiben**
 
 Ergänze `src-tauri/src/lib.rs`:
 
@@ -446,7 +446,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Tests laufen lassen**
+- [x] **Step 2: Tests laufen lassen**
 
 ```bash
 cd src-tauri && cargo test --lib db::
@@ -454,7 +454,7 @@ cd src-tauri && cargo test --lib db::
 
 Expected: 3 Tests, alle grün.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src-tauri/src/db.rs src-tauri/src/lib.rs
