@@ -80,6 +80,11 @@ pub fn run() {
             commands::break_lock_admin,
             commands::needs_setup,
             commands::setup_passwoerter,
+            commands::list_schuljahre,
+            commands::schuljahr_anlegen,
+            commands::schuljahr_aktivieren,
+            commands::import_xlsx_preview,
+            commands::import_xlsx_apply,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri-App konnte nicht starten");
