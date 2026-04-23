@@ -132,7 +132,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Modify: `src-tauri/Cargo.toml`
 
-- [ ] **Step 1: Dependencies hinzufügen**
+- [x] **Step 1: Dependencies hinzufügen**
 
 Ersetze den `[dependencies]`-Block in `src-tauri/Cargo.toml` durch:
 
@@ -159,7 +159,7 @@ tempfile = "3"
 
 `bundled` bei `rusqlite` liefert SQLite selbst mit (keine System-Lib nötig auf dem Schulrechner).
 
-- [ ] **Step 2: `cargo check` im `src-tauri/`-Verzeichnis**
+- [x] **Step 2: `cargo check` im `src-tauri/`-Verzeichnis**
 
 ```bash
 cd src-tauri && cargo check
@@ -167,7 +167,7 @@ cd src-tauri && cargo check
 
 Expected: Dependencies werden aufgelöst, keine Fehler.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src-tauri/Cargo.toml src-tauri/Cargo.lock
