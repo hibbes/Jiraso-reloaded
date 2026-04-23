@@ -109,3 +109,83 @@ pub fn setup_passwoerter(
     config::save(&cfg, &state.config_path)?;
     Ok(())
 }
+
+use crate::error::AppError;
+use crate::import::{self, ColumnMapping, DetectResult, ParsedSheet};
+use crate::stammdaten::{self, ImportSummary, Schuljahr};
+
+fn require_admin(state: &tauri::State<AppState>) -> AppResult<()> {
+    match *state.rolle.lock().unwrap() {
+        Some(Rolle::Administrator) => Ok(()),
+        _ => Err(AppError::Locked("Nur Administrator:innen dürfen Stammdaten ändern".into())),
+    }
+}
+
+fn open_db(state: &tauri::State<AppState>) -> AppResult<rusqlite::Connection> {
+    // Pfad wird aus dem AppState-Lockpath abgeleitet (data-Ordner neben lock)
+    let data_dir = state.lock_path.parent()
+        .ok_or_else(|| AppError::Config("Lock-Pfad ohne Parent".into()))?;
+    crate::db::open(&data_dir.join("jiraso.db"))
+}
+
+#[tauri::command]
+pub fn list_schuljahre(state: tauri::State<AppState>) -> AppResult<Vec<Schuljahr>> {
+    let conn = open_db(&state)?;
+    stammdaten::list_schuljahre(&conn)
+}
+
+#[tauri::command]
+pub fn schuljahr_anlegen(
+    bezeichnung: String,
+    aktivieren: bool,
+    state: tauri::State<AppState>,
+) -> AppResult<i64> {
+    require_admin(&state)?;
+    let mut conn = open_db(&state)?;
+    let id = stammdaten::anlegen(&conn, &bezeichnung)?;
+    if aktivieren {
+        stammdaten::aktivieren(&mut conn, id)?;
+    }
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn schuljahr_aktivieren(
+    id: i64,
+    state: tauri::State<AppState>,
+) -> AppResult<()> {
+    require_admin(&state)?;
+    let mut conn = open_db(&state)?;
+    stammdaten::aktivieren(&mut conn, id)
+}
+
+#[derive(serde::Serialize)]
+pub struct ImportPreview {
+    pub sheet: ParsedSheet,
+    pub detection: DetectResult,
+}
+
+#[tauri::command]
+pub fn import_xlsx_preview(
+    bytes: Vec<u8>,
+    state: tauri::State<AppState>,
+) -> AppResult<ImportPreview> {
+    require_admin(&state)?;
+    let sheet = import::parse_xlsx(&bytes)?;
+    let detection = import::detect_columns(&sheet.headers);
+    Ok(ImportPreview { sheet, detection })
+}
+
+#[tauri::command]
+pub fn import_xlsx_apply(
+    schuljahr_id: i64,
+    bytes: Vec<u8>,
+    mapping: ColumnMapping,
+    state: tauri::State<AppState>,
+) -> AppResult<ImportSummary> {
+    require_admin(&state)?;
+    let sheet = import::parse_xlsx(&bytes)?;
+    let records = import::build_inputs(&sheet, &mapping);
+    let mut conn = open_db(&state)?;
+    stammdaten::upsert_schueler(&mut conn, schuljahr_id, &records)
+}

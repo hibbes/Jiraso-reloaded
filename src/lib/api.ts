@@ -48,3 +48,64 @@ export function rechnerName(): string {
   for (let i = 0; i < ua.length; i++) h = (h * 31 + ua.charCodeAt(i)) | 0;
   return 'PC-' + (h >>> 0).toString(16).slice(0, 6);
 }
+
+// --- Stammdaten / Import ---
+
+export type Schuljahr = {
+  id: number;
+  bezeichnung: string;
+  aktiv: boolean;
+};
+
+export type ColumnMapping = {
+  uuid: number | null;
+  klasse: number;
+  nachname: number;
+  vorname: number;
+};
+
+export type FieldKind = 'Uuid' | 'Klasse' | 'Nachname' | 'Vorname';
+
+export type DetectResult =
+  | { Ok: ColumnMapping }
+  | {
+      Ambiguous: {
+        headers: string[];
+        suggestions: Record<FieldKind, number[]>;
+      };
+    };
+
+export type ParsedSheet = {
+  headers: string[];
+  rows: string[][];
+};
+
+export type ImportPreview = {
+  sheet: ParsedSheet;
+  detection: DetectResult;
+};
+
+export type ImportSummary = {
+  neue_klassen: number;
+  neue_schueler: number;
+  geaenderte_schueler: number;
+  unveraenderte_schueler: number;
+};
+
+export const stammdaten = {
+  list: () => invoke<Schuljahr[]>('list_schuljahre'),
+  anlegen: (bezeichnung: string, aktivieren: boolean) =>
+    invoke<number>('schuljahr_anlegen', { bezeichnung, aktivieren }),
+  aktivieren: (id: number) => invoke<void>('schuljahr_aktivieren', { id })
+};
+
+export const importXlsx = {
+  preview: (bytes: number[]) =>
+    invoke<ImportPreview>('import_xlsx_preview', { bytes }),
+  apply: (schuljahrId: number, bytes: number[], mapping: ColumnMapping) =>
+    invoke<ImportSummary>('import_xlsx_apply', {
+      schuljahrId,
+      bytes,
+      mapping
+    })
+};

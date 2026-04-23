@@ -71,6 +71,13 @@
   Die Funktionen werden in den folgenden Plänen (2–5) schrittweise aktiviert.
 </p>
 
+{#if session.rolle === 'administrator'}
+  <a href="/admin/stammdaten" class="admin-tile">
+    <strong>Stammdaten-Import</strong>
+    <span>XLSX aus ASV-BW einspielen</span>
+  </a>
+{/if}
+
 <div class="grid">
   {#each kacheln as k}
     <div class="card kachel" class:disabled={k.tbd}>
@@ -116,5 +123,29 @@
   .kachel-badge {
     margin-top: 0.9rem;
     align-self: flex-start;
+  }
+  .admin-tile {
+    display: inline-flex;
+    flex-direction: column;
+    padding: 1rem 1.4rem;
+    margin-bottom: 1.5rem;
+    background: var(--sg-bg-card);
+    border: 1px solid var(--sg-border);
+    border-radius: var(--sg-radius-md);
+    text-decoration: none;
+    color: var(--sg-text);
+    box-shadow: var(--sg-shadow-sm);
+    transition: box-shadow 0.15s ease;
+  }
+  .admin-tile:hover {
+    box-shadow: var(--sg-shadow-hover);
+  }
+  .admin-tile strong {
+    color: var(--sg-petrol);
+  }
+  .admin-tile span {
+    font-size: 0.9em;
+    color: var(--sg-meta);
+    margin-top: 0.2rem;
   }
 </style>

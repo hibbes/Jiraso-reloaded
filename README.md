@@ -5,6 +5,11 @@ Schiller-Gymnasium Offenburg. Nachfolger von Jiraso (Peer Schlieker, 2021).
 
 **Tech-Stack:** Tauri 2 (Rust) + SvelteKit 2 (Svelte 5, TypeScript) + SQLite (bundled).
 
+## Features
+
+- **Foundation** (Plan 1): Passwort-Setup, Rollen-Login (Fachlehrer/Klassenlehrer/Admin), Session-Lock auf Netzlaufwerk, SQLite mit Tages-Backup.
+- **Stammdaten-Import** (ab Plan 2, Admin-only): XLSX-Import aus ASV-BW mit heuristischer Spalten-Erkennung, ASV-UUID-basiertem Re-Import, Schuljahr-Verwaltung.
+
 ## Installation auf dem Schulrechner (Plan 1: Foundation)
 
 1. Lade den aktuellen Windows-Build aus den
@@ -32,6 +37,14 @@ Neben der `.exe` entstehen automatisch:
 
 Eine vollständige Abnahme-Liste fuer die Schul-Installation liegt unter
 [`SMOKE_CHECKLIST.md`](SMOKE_CHECKLIST.md).
+
+## Stammdaten importieren
+
+1. Als **Admin** einloggen.
+2. Dashboard → „Stammdaten-Import".
+3. Schuljahr wählen oder neu anlegen (Format `YYYY/YY`, z. B. `2025/26`).
+4. XLSX aus ASV-BW wählen (siehe [`import-vorlagen/asv-export-template.md`](import-vorlagen/asv-export-template.md)).
+5. Vorschau prüfen, ggf. Spalten zuordnen, bestätigen.
 
 ## Entwicklung
 
