@@ -71,7 +71,7 @@ jiraso-reloaded/
 - Create: gesamtes Projekt-Skelett (via Tauri-Create-App)
 - Modify: Wurzel-README.md danach
 
-- [ ] **Step 1: Im leeren Repo-Arbeitsverzeichnis das Tauri-Template erzeugen**
+- [x] **Step 1: Im leeren Repo-Arbeitsverzeichnis das Tauri-Template erzeugen**
 
 ```bash
 cd /home/neo/jiraso-reloaded
@@ -83,7 +83,7 @@ mv /tmp/jiraso-tmp/docs /tmp/jiraso-tmp/.gitignore .
 rmdir /tmp/jiraso-tmp
 ```
 
-- [ ] **Step 2: `npm install` und Build-Sanity prüfen**
+- [x] **Step 2: `npm install` und Build-Sanity prüfen**
 
 ```bash
 npm install
@@ -92,7 +92,7 @@ npm run tauri build -- --debug
 
 Expected: Build läuft durch, erzeugt `src-tauri/target/debug/jiraso-reloaded`.
 
-- [ ] **Step 3: Sinnvolle Metadaten in `src-tauri/tauri.conf.json`**
+- [x] **Step 3: Sinnvolle Metadaten in `src-tauri/tauri.conf.json`**
 
 Ersetze die `productName`, `identifier`, `version`, `app.windows`-Sektion:
 
@@ -116,7 +116,7 @@ Ersetze die `productName`, `identifier`, `version`, `app.windows`-Sektion:
 }
 ```
 
-- [ ] **Step 4: Erster Commit**
+- [x] **Step 4: Erster Commit**
 
 ```bash
 git add -A
