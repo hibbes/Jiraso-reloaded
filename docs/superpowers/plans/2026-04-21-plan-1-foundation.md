@@ -1602,7 +1602,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Files:**
 - Create: `src/routes/dashboard/+page.svelte`
 
-- [ ] **Step 1: Platzhalter-Dashboard mit Rollen-Sichtbarkeit**
+- [x] **Step 1: Platzhalter-Dashboard mit Rollen-Sichtbarkeit**
 
 ```svelte
 <!-- src/routes/dashboard/+page.svelte -->
@@ -1650,7 +1650,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 </style>
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/routes/dashboard
