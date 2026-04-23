@@ -1915,7 +1915,7 @@ Expected: `jiraso-reloaded.exe` und NSIS-Installer liegen vor.
 - Create: `SMOKE_CHECKLIST.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: README mit Deploy-Anleitung**
+- [x] **Step 1: README mit Deploy-Anleitung**
 
 ```markdown
 # Jiraso-reloaded
@@ -1950,7 +1950,7 @@ cd src-tauri && cargo test
 ```
 ```
 
-- [ ] **Step 2: Smoke-Checklist**
+- [x] **Step 2: Smoke-Checklist**
 
 ```markdown
 # Smoke-Checklist Plan 1: Foundation
@@ -1994,7 +1994,7 @@ Am Schulrechner durchzugehen, bevor Plan 2 gestartet wird.
 - [ ] Alle Tabellen sind leer
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md SMOKE_CHECKLIST.md
