@@ -1342,7 +1342,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - Create: `src/lib/api.ts`, `src/lib/session.svelte.ts`
 - Modify: `svelte.config.js` (static adapter)
 
-- [ ] **Step 1: Static Adapter installieren und konfigurieren**
+- [x] **Step 1: Static Adapter installieren und konfigurieren** (Scaffold lieferte adapter-static bereits; nur `prerender.entries: []` ergänzt)
 
 ```bash
 npm install -D @sveltejs/adapter-static
@@ -1363,7 +1363,7 @@ export default {
 };
 ```
 
-- [ ] **Step 2: API-Wrapper schreiben**
+- [x] **Step 2: API-Wrapper schreiben** (inkl. `needsSetup` + `setupPasswoerter` aus Task 14)
 
 ```typescript
 // src/lib/api.ts
@@ -1406,7 +1406,7 @@ export function rechnerName(): string {
 }
 ```
 
-- [ ] **Step 3: Session-Store als Svelte-5-Rune**
+- [x] **Step 3: Session-Store als Svelte-5-Rune**
 
 ```typescript
 // src/lib/session.svelte.ts
@@ -1421,7 +1421,7 @@ class SessionStore {
 export const session = new SessionStore();
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/lib/ svelte.config.js package.json package-lock.json
