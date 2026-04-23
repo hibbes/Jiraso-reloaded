@@ -16,6 +16,7 @@ pub mod auth;
 pub mod lock;
 pub mod backup;
 pub mod stammdaten;
+pub mod import;
 
 #[cfg(feature = "desktop")]
 pub mod commands;
