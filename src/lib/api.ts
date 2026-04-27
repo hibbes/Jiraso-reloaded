@@ -252,3 +252,12 @@ export const klassenraum = {
   schueler: (klasseId: number) =>
     invoke<SchuelerMini[]>('klassenraum_schueler', { klasseId })
 };
+
+// --- Bug-Report ---
+
+export type IssueResponse = { number: number; html_url: string };
+
+export const bugReport = {
+  submit: (titel: string, body: string) =>
+    invoke<IssueResponse>('bug_report_submit', { titel, body })
+};

@@ -5,6 +5,8 @@
   import { schulname, aktuellesSchuljahr, currentRole, logout } from '$lib/api';
   import { goto } from '$app/navigation';
   import '../app.css';
+  import BugButton from '$lib/BugButton.svelte';
+  import Celebration from '$lib/Celebration.svelte';
 
   onMount(async () => {
     session.schule = await schulname();
@@ -48,6 +50,9 @@
   <span class="sep">·</span>
   <span class="mono">schiller-offenburg.de</span>
 </footer>
+
+<BugButton />
+<Celebration />
 
 <style>
   .app-header {

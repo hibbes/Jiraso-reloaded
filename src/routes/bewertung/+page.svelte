@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { session } from '$lib/session.svelte';
+  import { celebration } from '$lib/celebration.svelte';
   import {
     stammdaten,
     katalog,
@@ -115,6 +116,16 @@
     });
     if (r.status === 'Ok') {
       cells[ck] = { formulierung_id: fid, geaendert_am: r.neuer_stand || null, status: 'saved' };
+      // Klasse fertig? Sternenregen-Trigger
+      const allesGesetzt = schueler.every(stud =>
+        kategorien.every(kat => {
+          const c = cells[key(stud.id, kat.id)];
+          return c && c.geaendert_am !== null;
+        })
+      );
+      if (allesGesetzt) {
+        celebration.trigger();
+      }
       setTimeout(() => {
         if (cells[ck].status === 'saved') cells[ck] = { ...cells[ck], status: 'idle' };
       }, 1500);
