@@ -109,3 +109,146 @@ export const importStammdaten = {
       mapping
     })
 };
+
+// --- Katalog ---
+
+export type Fach = {
+  id: number;
+  schuljahr_id: number;
+  name: string;
+  reihenfolge: number;
+  aktiv: boolean;
+};
+
+export type Kategorie = {
+  id: number;
+  schuljahr_id: number;
+  name: string;
+  reihenfolge: number;
+  aktiv: boolean;
+};
+
+export type Formulierung = {
+  id: number;
+  kategorie_id: number;
+  text: string;
+  reihenfolge: number;
+  aktiv: boolean;
+};
+
+export const katalog = {
+  faecher: (schuljahrId: number) =>
+    invoke<Fach[]>('katalog_faecher', { schuljahrId }),
+  kategorien: (schuljahrId: number) =>
+    invoke<Kategorie[]>('katalog_kategorien', { schuljahrId }),
+  formulierungen: (kategorieId: number) =>
+    invoke<Formulierung[]>('katalog_formulierungen', { kategorieId }),
+
+  fachAnlegen: (schuljahrId: number, name: string) =>
+    invoke<number>('katalog_fach_anlegen', { schuljahrId, name }),
+  kategorieAnlegen: (schuljahrId: number, name: string) =>
+    invoke<number>('katalog_kategorie_anlegen', { schuljahrId, name }),
+  formulierungAnlegen: (kategorieId: number, text: string) =>
+    invoke<number>('katalog_formulierung_anlegen', { kategorieId, text }),
+
+  fachAktiv: (id: number, aktiv: boolean) =>
+    invoke<void>('katalog_fach_aktiv', { id, aktiv }),
+  kategorieAktiv: (id: number, aktiv: boolean) =>
+    invoke<void>('katalog_kategorie_aktiv', { id, aktiv }),
+  formulierungAktiv: (id: number, aktiv: boolean) =>
+    invoke<void>('katalog_formulierung_aktiv', { id, aktiv }),
+
+  fachReihenfolge: (id: number, reihenfolge: number) =>
+    invoke<void>('katalog_fach_reihenfolge', { id, reihenfolge }),
+  kategorieReihenfolge: (id: number, reihenfolge: number) =>
+    invoke<void>('katalog_kategorie_reihenfolge', { id, reihenfolge }),
+  formulierungReihenfolge: (id: number, reihenfolge: number) =>
+    invoke<void>('katalog_formulierung_reihenfolge', { id, reihenfolge })
+};
+
+// --- Bewertung ---
+
+export type MatrixZelle = {
+  schueler_id: number;
+  kategorie_id: number;
+  formulierung_id: number | null;
+  geaendert_am: string;
+};
+
+export type BewertungUpdate = {
+  schueler_id: number;
+  fach_id: number;
+  kategorie_id: number;
+  formulierung_id: number | null;
+  vorheriger_stand: string | null;
+};
+
+export type SetResult =
+  | { status: 'Ok'; neuer_stand: string }
+  | { status: 'Konflikt'; server_formulierung_id: number | null; server_geaendert_am: string };
+
+export const bewertung = {
+  matrix: (klasseId: number, fachId: number) =>
+    invoke<MatrixZelle[]>('bewertung_matrix', { klasseId, fachId }),
+  set: (update: BewertungUpdate) =>
+    invoke<SetResult>('bewertung_set', { update })
+};
+
+// --- Bemerkung ---
+
+export const bemerkung = {
+  get: (schuelerId: number) =>
+    invoke<[string, string] | null>('bemerkung_get', { schuelerId }),
+  set: (schuelerId: number, text: string, vorherigerStand: string | null) =>
+    invoke<SetResult>('bemerkung_set', { schuelerId, text, vorherigerStand })
+};
+
+// --- Legacy-Import ---
+
+export type LegacyKategorie = {
+  name: string;
+  formulierungen: string[];
+};
+
+export type LegacyImportPreview = {
+  faecher: string[];
+  kategorien: LegacyKategorie[];
+};
+
+export type LegacyImportSummary = {
+  neue_faecher: number;
+  neue_kategorien: number;
+  neue_formulierungen: number;
+  uebersprungene_faecher: number;
+  uebersprungene_kategorien: number;
+  uebersprungene_formulierungen: number;
+};
+
+export const legacyImport = {
+  preview: (faecherBytes: number[], floskelnBytes: number[], formatBytes: number[]) =>
+    invoke<LegacyImportPreview>('legacy_import_preview', { faecherBytes, floskelnBytes, formatBytes }),
+  apply: (schuljahrId: number, preview: LegacyImportPreview) =>
+    invoke<LegacyImportSummary>('legacy_import_apply', { schuljahrId, preview })
+};
+
+// --- Klassen + Schüler (für Bewertungs-Matrix, Backend Task 11) ---
+
+export type Klasse = {
+  id: number;
+  name: string;
+  schuljahr_id: number;
+};
+
+export type SchuelerMini = {
+  id: number;
+  vorname: string;
+  nachname: string;
+  sortname: string;
+};
+
+export const klassenraum = {
+  klassen: (schuljahrId: number) =>
+    invoke<Klasse[]>('klassenraum_klassen', { schuljahrId }),
+  schueler: (klasseId: number) =>
+    invoke<SchuelerMini[]>('klassenraum_schueler', { klasseId })
+};
