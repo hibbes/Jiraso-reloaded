@@ -149,6 +149,111 @@ pub fn parse_alle(
     Ok(LegacyImportPreview { faecher, kategorien })
 }
 
+use rusqlite::Connection;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct LegacyImportSummary {
+    pub neue_faecher: usize,
+    pub neue_kategorien: usize,
+    pub neue_formulierungen: usize,
+    pub uebersprungene_faecher: usize,
+    pub uebersprungene_kategorien: usize,
+    pub uebersprungene_formulierungen: usize,
+}
+
+pub fn apply(
+    conn: &mut Connection,
+    schuljahr_id: i64,
+    preview: &LegacyImportPreview,
+) -> AppResult<LegacyImportSummary> {
+    let tx = conn.transaction()?;
+    let mut sum = LegacyImportSummary::default();
+
+    // Bestehende Fächer einlesen
+    let bestehende_faecher: std::collections::HashSet<String> = {
+        let mut s = std::collections::HashSet::new();
+        let mut stmt = tx.prepare("SELECT name FROM fach WHERE schuljahr_id = ?1")?;
+        let mut rows = stmt.query(rusqlite::params![schuljahr_id])?;
+        while let Some(r) = rows.next()? {
+            s.insert(r.get(0)?);
+        }
+        s
+    };
+    for f in &preview.faecher {
+        if bestehende_faecher.contains(f) {
+            sum.uebersprungene_faecher += 1;
+        } else {
+            let r: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(reihenfolge), 0) FROM fach WHERE schuljahr_id = ?1",
+                rusqlite::params![schuljahr_id], |r| r.get(0),
+            ).unwrap_or(0) + 1;
+            tx.execute(
+                "INSERT INTO fach(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+                rusqlite::params![schuljahr_id, f, r],
+            )?;
+            sum.neue_faecher += 1;
+        }
+    }
+
+    let bestehende_kategorien: std::collections::HashMap<String, i64> = {
+        let mut m = std::collections::HashMap::new();
+        let mut stmt = tx.prepare("SELECT name, id FROM kategorie WHERE schuljahr_id = ?1")?;
+        let mut rows = stmt.query(rusqlite::params![schuljahr_id])?;
+        while let Some(r) = rows.next()? {
+            let n: String = r.get(0)?;
+            let id: i64 = r.get(1)?;
+            m.insert(n, id);
+        }
+        m
+    };
+    for kat in &preview.kategorien {
+        let kid = if let Some(&id) = bestehende_kategorien.get(&kat.name) {
+            sum.uebersprungene_kategorien += 1;
+            id
+        } else {
+            let r: i64 = tx.query_row(
+                "SELECT COALESCE(MAX(reihenfolge), 0) FROM kategorie WHERE schuljahr_id = ?1",
+                rusqlite::params![schuljahr_id], |r| r.get(0),
+            ).unwrap_or(0) + 1;
+            tx.execute(
+                "INSERT INTO kategorie(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+                rusqlite::params![schuljahr_id, &kat.name, r],
+            )?;
+            sum.neue_kategorien += 1;
+            tx.last_insert_rowid()
+        };
+
+        // Formulierungen
+        let bestehende_form: std::collections::HashSet<String> = {
+            let mut s = std::collections::HashSet::new();
+            let mut stmt = tx.prepare("SELECT text FROM formulierung WHERE kategorie_id = ?1")?;
+            let mut rows = stmt.query(rusqlite::params![kid])?;
+            while let Some(r) = rows.next()? {
+                s.insert(r.get(0)?);
+            }
+            s
+        };
+        for ftext in &kat.formulierungen {
+            if bestehende_form.contains(ftext) {
+                sum.uebersprungene_formulierungen += 1;
+            } else {
+                let r: i64 = tx.query_row(
+                    "SELECT COALESCE(MAX(reihenfolge), 0) FROM formulierung WHERE kategorie_id = ?1",
+                    rusqlite::params![kid], |r| r.get(0),
+                ).unwrap_or(0) + 1;
+                tx.execute(
+                    "INSERT INTO formulierung(kategorie_id, text, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+                    rusqlite::params![kid, ftext, r],
+                )?;
+                sum.neue_formulierungen += 1;
+            }
+        }
+    }
+
+    tx.commit()?;
+    Ok(sum)
+}
+
 fn cell_to_string(cell: &Data) -> String {
     match cell {
         Data::Empty => String::new(),
@@ -240,5 +345,58 @@ mod tests {
         ]);
         assert_eq!(preview.kategorien[0].formulierungen.len(), 4);
         assert_eq!(preview.kategorien[2].formulierungen.len(), 5); // Beteiligung
+    }
+
+    use super::apply;
+    use crate::db;
+
+    fn fresh_conn() -> (tempfile::TempDir, Connection) {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = db::open(&dir.path().join("t.db")).unwrap();
+        conn.execute("INSERT INTO schuljahr(bezeichnung, aktiv) VALUES ('2025/26', 1)", []).unwrap();
+        (dir, conn)
+    }
+
+    #[test]
+    fn apply_idempotent() {
+        let (_d, mut conn) = fresh_conn();
+        let preview = LegacyImportPreview {
+            faecher: vec!["Mathe".into(), "Deutsch".into()],
+            kategorien: vec![
+                LegacyKategorie {
+                    name: "Lernbereitschaft".into(),
+                    formulierungen: vec!["fleißig".into(), "engagiert".into()],
+                },
+            ],
+        };
+        let s1 = apply(&mut conn, 1, &preview).unwrap();
+        assert_eq!(s1.neue_faecher, 2);
+        assert_eq!(s1.neue_kategorien, 1);
+        assert_eq!(s1.neue_formulierungen, 2);
+
+        let s2 = apply(&mut conn, 1, &preview).unwrap();
+        assert_eq!(s2.neue_faecher, 0);
+        assert_eq!(s2.neue_kategorien, 0);
+        assert_eq!(s2.neue_formulierungen, 0);
+        assert_eq!(s2.uebersprungene_faecher, 2);
+        assert_eq!(s2.uebersprungene_kategorien, 1);
+        assert_eq!(s2.uebersprungene_formulierungen, 2);
+    }
+
+    #[test]
+    fn apply_haengt_an_bestehende_an() {
+        let (_d, mut conn) = fresh_conn();
+        // Existierendes Fach
+        conn.execute("INSERT INTO fach(schuljahr_id, name, reihenfolge) VALUES (1, 'Mathe', 1)", []).unwrap();
+
+        let preview = LegacyImportPreview {
+            faecher: vec!["Mathe".into(), "Deutsch".into()],
+            kategorien: vec![],
+        };
+        let s = apply(&mut conn, 1, &preview).unwrap();
+        assert_eq!(s.neue_faecher, 1);
+        assert_eq!(s.uebersprungene_faecher, 1);
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM fach", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 2);
     }
 }
