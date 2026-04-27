@@ -121,6 +121,20 @@ fn require_admin(state: &tauri::State<AppState>) -> AppResult<()> {
     }
 }
 
+fn require_klassenlehrer_oder_admin(state: &tauri::State<AppState>) -> AppResult<()> {
+    match *state.rolle.lock().unwrap() {
+        Some(Rolle::Klassenlehrer) | Some(Rolle::Administrator) => Ok(()),
+        _ => Err(AppError::Locked("Nur Klassenlehrer:innen oder Admin dürfen Bemerkungen schreiben".into())),
+    }
+}
+
+fn require_lehrer(state: &tauri::State<AppState>) -> AppResult<()> {
+    match *state.rolle.lock().unwrap() {
+        Some(_) => Ok(()),
+        None => Err(AppError::Locked("Nicht eingeloggt".into())),
+    }
+}
+
 fn open_db(state: &tauri::State<AppState>) -> AppResult<rusqlite::Connection> {
     // Pfad wird aus dem AppState-Lockpath abgeleitet (data-Ordner neben lock)
     let data_dir = state.lock_path.parent()
@@ -188,4 +202,156 @@ pub fn import_apply(
     let records = import::build_inputs(&sheet, &mapping);
     let mut conn = open_db(&state)?;
     stammdaten::upsert_schueler(&mut conn, schuljahr_id, &records)
+}
+
+// --- Katalog-Commands ---
+
+use crate::katalog::{self, Fach, Formulierung, Kategorie};
+
+#[tauri::command]
+pub fn katalog_faecher(schuljahr_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<Fach>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    katalog::list_faecher(&conn, schuljahr_id)
+}
+
+#[tauri::command]
+pub fn katalog_kategorien(schuljahr_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<Kategorie>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    katalog::list_kategorien(&conn, schuljahr_id)
+}
+
+#[tauri::command]
+pub fn katalog_formulierungen(kategorie_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<Formulierung>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    katalog::list_formulierungen(&conn, kategorie_id)
+}
+
+#[tauri::command]
+pub fn katalog_fach_anlegen(schuljahr_id: i64, name: String, state: tauri::State<AppState>) -> AppResult<i64> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::upsert_fach(&conn, schuljahr_id, &name, true)
+}
+
+#[tauri::command]
+pub fn katalog_kategorie_anlegen(schuljahr_id: i64, name: String, state: tauri::State<AppState>) -> AppResult<i64> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::upsert_kategorie(&conn, schuljahr_id, &name)
+}
+
+#[tauri::command]
+pub fn katalog_formulierung_anlegen(kategorie_id: i64, text: String, state: tauri::State<AppState>) -> AppResult<i64> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::upsert_formulierung(&conn, kategorie_id, &text)
+}
+
+#[tauri::command]
+pub fn katalog_fach_aktiv(id: i64, aktiv: bool, state: tauri::State<AppState>) -> AppResult<()> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::set_fach_aktiv(&conn, id, aktiv)
+}
+
+#[tauri::command]
+pub fn katalog_kategorie_aktiv(id: i64, aktiv: bool, state: tauri::State<AppState>) -> AppResult<()> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::set_kategorie_aktiv(&conn, id, aktiv)
+}
+
+#[tauri::command]
+pub fn katalog_formulierung_aktiv(id: i64, aktiv: bool, state: tauri::State<AppState>) -> AppResult<()> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::set_formulierung_aktiv(&conn, id, aktiv)
+}
+
+#[tauri::command]
+pub fn katalog_fach_reihenfolge(id: i64, reihenfolge: i64, state: tauri::State<AppState>) -> AppResult<()> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::set_fach_reihenfolge(&conn, id, reihenfolge)
+}
+
+#[tauri::command]
+pub fn katalog_kategorie_reihenfolge(id: i64, reihenfolge: i64, state: tauri::State<AppState>) -> AppResult<()> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::set_kategorie_reihenfolge(&conn, id, reihenfolge)
+}
+
+#[tauri::command]
+pub fn katalog_formulierung_reihenfolge(id: i64, reihenfolge: i64, state: tauri::State<AppState>) -> AppResult<()> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::set_formulierung_reihenfolge(&conn, id, reihenfolge)
+}
+
+// --- Bewertung + Bemerkung ---
+
+use crate::bewertung::{self, BewertungUpdate, MatrixZelle, SetResult};
+use crate::bemerkung;
+
+#[tauri::command]
+pub fn bewertung_matrix(klasse_id: i64, fach_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<MatrixZelle>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    bewertung::matrix(&conn, klasse_id, fach_id)
+}
+
+#[tauri::command]
+pub fn bewertung_set(update: BewertungUpdate, state: tauri::State<AppState>) -> AppResult<SetResult> {
+    require_lehrer(&state)?;
+    let mut conn = open_db(&state)?;
+    bewertung::set(&mut conn, update)
+}
+
+#[tauri::command]
+pub fn bemerkung_get(schueler_id: i64, state: tauri::State<AppState>) -> AppResult<Option<(String, String)>> {
+    require_klassenlehrer_oder_admin(&state)?;
+    let conn = open_db(&state)?;
+    bemerkung::get(&conn, schueler_id)
+}
+
+#[tauri::command]
+pub fn bemerkung_set(
+    schueler_id: i64,
+    text: String,
+    vorheriger_stand: Option<String>,
+    state: tauri::State<AppState>,
+) -> AppResult<SetResult> {
+    require_klassenlehrer_oder_admin(&state)?;
+    let mut conn = open_db(&state)?;
+    bemerkung::set(&mut conn, schueler_id, &text, vorheriger_stand)
+}
+
+// --- Legacy-Import ---
+
+use crate::legacy_import::{self, LegacyImportPreview, LegacyImportSummary};
+
+#[tauri::command]
+pub fn legacy_import_preview(
+    faecher_bytes: Vec<u8>,
+    floskeln_bytes: Vec<u8>,
+    format_bytes: Vec<u8>,
+    state: tauri::State<AppState>,
+) -> AppResult<LegacyImportPreview> {
+    require_admin(&state)?;
+    legacy_import::parse_alle(&faecher_bytes, &floskeln_bytes, &format_bytes)
+}
+
+#[tauri::command]
+pub fn legacy_import_apply(
+    schuljahr_id: i64,
+    preview: LegacyImportPreview,
+    state: tauri::State<AppState>,
+) -> AppResult<LegacyImportSummary> {
+    require_admin(&state)?;
+    let mut conn = open_db(&state)?;
+    legacy_import::apply(&mut conn, schuljahr_id, &preview)
 }
