@@ -24,6 +24,9 @@ Lehrer:innen geben Verbalbeurteilungen für Schüler:innen der Klassen 5 und 6 e
 | Q4 | **Rollen**: Fachlehrer→Bewertung in einem gewählten Fach, Klassenlehrer→alle Fächer + Bemerkung, Administrator→alles inkl. Katalog-Editor. |
 | Q5 | **Konflikt-UX**: Inline-Banner pro betroffener Zelle mit `[Meine übernehmen]` / `[Ihre behalten]`. Andere Zellen werden still refresht. |
 | Q6 | **Autosave**: on-blur pro Zelle, Bemerkung 1500 ms debounced. Status-Icon pro Zelle (`✓` / `⟳` / `⚠`). Kein Speichern-Button. |
+| Q7 | **NULL-Bewertung wird explizit gespeichert** (nicht gelöscht), damit „Klasse komplett bewertet" detektierbar ist (alle Zellen haben `geaendert_am`). |
+| Q8 | **Käfer-Knopf** unten rechts auf jeder Seite öffnet ein Bug-Report-Modal, das ein Issue im GitHub-Repo `hibbes/Jiraso-reloaded` erstellt. Token aus `config.toml` (Admin-Setup). Fallback ohne Token: `mailto:`-Link mit pre-filled Body. |
+| Q9 | **Sternenregen-Belohnung** (Canvas-Confetti, Eigenbau ~30 LOC, keine Crate) bei (a) erfolgreichem Bug-Report, (b) Klasse × Fach komplett bewertet (alle `geaendert_am !== null`). |
 
 ## Schema-Migration 003
 
@@ -108,7 +111,7 @@ match (update.vorheriger_stand, server) {
 }
 ```
 
-`formulierung_id = None` (NULL) = "keine Angabe" → DELETE der Zeile beim Update, kein INSERT bei initial-NULL.
+`formulierung_id = None` (NULL) = "keine Angabe" → bleibt als explizite Zeile in der DB (kein DELETE). Damit ist `geaendert_am !== NULL` ein Marker für „Lehrer:in hat sich aktiv mit dieser Zelle befasst", und wir können detektieren wann eine Klasse × Fach komplett bewertet ist (Sternenregen-Trigger).
 
 ### `legacy_import.rs` (neu)
 
@@ -210,6 +213,48 @@ Frontend (manueller Smoke-Test, siehe SMOKE_CHECKLIST.md-Erweiterung):
 4. Zwei Browser-Sessions parallel auf gleiche Zelle → ⚠-Banner mit Resolution-Choice erscheint.
 5. Bemerkung 750 Zeichen tippen → Counter wird rot ab 700, Save klappt trotzdem (kein hartes Limit).
 6. Fachlehrer-Login: Bemerkung-Panel ausgeblendet, Fach-Tab nur aktives Fach.
+
+## Bug-Report-Käfer
+
+**Sichtbarkeit:** Floating-Button unten rechts (`position: fixed; bottom: 1rem; right: 1rem`) in `+layout.svelte`, also auf jeder Route. Symbol: 🪲 (oder SVG-Käfer). Tooltip „Bug melden".
+
+**Modal-Form:**
+- Was war ich am Tun? (Auto-vorbefüllt mit `window.location.pathname` + Rolle + aktivem Schuljahr)
+- Was hat nicht geklappt? (Textarea, ≥ 10 Zeichen)
+- Optional: Screenshot anhängen via `navigator.mediaDevices.getDisplayMedia` oder `<input type="file" accept="image/*">`. KISS: nur File-Input.
+
+**Backend-Command `bug_report(titel, body, screenshot_bytes_b64?)`:**
+1. Liest `config.toml` → `bug_report.github_token` und `bug_report.repo` (Default `hibbes/Jiraso-reloaded`).
+2. Wenn Token leer → `Err(AppError::Config("Kein GitHub-Token konfiguriert. Admin muss ihn unter /admin/setup eintragen."))`. Frontend zeigt dann `mailto:`-Fallback mit `mczernohous@gmail.com` und pre-filled Body.
+3. Sonst: HTTP-POST an `https://api.github.com/repos/{repo}/issues` mit Header `Authorization: Bearer {token}` und JSON `{title, body, labels: ["bug-report-app"]}`.
+4. Response: `Issue { number: i32, html_url: String }` zurück ans Frontend.
+5. Bei Screenshot: zweiter POST an `/repos/{repo}/issues/{n}/comments` mit Markdown-Image-Embed (gist.github.com hosting? oder Base64 als data-URL — letzterer Workaround taugt nicht für GH; Plan 3 cuttet Screenshots ganz, kommt in Plan 6 wenn überhaupt).
+
+**Token-Setup:** AppConfig erweitert um optional `[bug_report] github_token = "..."` und `repo = "hibbes/Jiraso-reloaded"`. Eintragung über das bestehende `/setup`-Wizard-Pattern oder ein neues `/admin/bug-config`. KISS: dem Admin-User wird der Pfad zur `config.toml` angezeigt, er trägt manuell ein. Im Plan: keine eigene UI, nur Doku.
+
+**Belohnung:** Bei erfolgreichem Report → Sternenregen + Toast „Danke! Issue #N angelegt." mit Klick-Link auf `html_url`.
+
+## Sternenregen-Component
+
+**Trigger:**
+- A) Erfolgreicher `bug_report` (siehe oben).
+- B) Beim `bewertung_set`-Ergebnis prüft das Frontend: ist nach diesem Save jede Zelle `cells[s.id × k.id]` mit `geaendert_am !== null` befüllt? Wenn ja, und vorher war sie es nicht → Sternenregen.
+
+**Implementierung (Eigenbau, keine Crate/NPM):**
+Eine Svelte-Komponente `<Celebration />`, die einen `<canvas>` als Overlay rendert und mit `requestAnimationFrame` 80–150 Sterne (Unicode `★` oder kleine SVG-Pfade) von oben fallen lässt mit zufälliger Rotation und Drift. Animation 2,5 s, dann Komponente removed sich aus dem DOM. Eine globale Store-Instanz mit `celebrate()`-Funktion erlaubt Trigger von überall.
+
+```ts
+// $lib/celebration.svelte.ts
+export const celebration = $state<{ active: boolean; trigger: () => void }>({
+  active: false,
+  trigger() {
+    this.active = true;
+    setTimeout(() => { this.active = false; }, 2500);
+  }
+});
+```
+
+Komponente in `+layout.svelte` global eingebunden.
 
 ## Out of Scope (Plan 3)
 
