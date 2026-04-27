@@ -112,7 +112,7 @@ pub fn setup_passwoerter(
 
 use crate::error::AppError;
 use crate::import::{self, ColumnMapping, DetectResult, ParsedSheet};
-use crate::stammdaten::{self, ImportSummary, Schuljahr};
+use crate::stammdaten::{self, ImportSummary, Klasse, SchuelerMini, Schuljahr};
 
 fn require_admin(state: &tauri::State<AppState>) -> AppResult<()> {
     match *state.rolle.lock().unwrap() {
@@ -328,6 +328,22 @@ pub fn bemerkung_set(
     require_klassenlehrer_oder_admin(&state)?;
     let mut conn = open_db(&state)?;
     bemerkung::set(&mut conn, schueler_id, &text, vorheriger_stand)
+}
+
+// --- Klassen + Schüler Mini-Reads ---
+
+#[tauri::command]
+pub fn klassenraum_klassen(schuljahr_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<Klasse>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    stammdaten::list_klassen(&conn, schuljahr_id)
+}
+
+#[tauri::command]
+pub fn klassenraum_schueler(klasse_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<SchuelerMini>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    stammdaten::list_schueler(&conn, klasse_id)
 }
 
 // --- Legacy-Import ---

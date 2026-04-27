@@ -159,6 +159,47 @@ fn klasse_id_or_insert_tx(
     Ok((tx.last_insert_rowid(), true))
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Klasse {
+    pub id: i64,
+    pub name: String,
+    pub schuljahr_id: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SchuelerMini {
+    pub id: i64,
+    pub vorname: String,
+    pub nachname: String,
+    pub sortname: String,
+}
+
+pub fn list_klassen(conn: &Connection, schuljahr_id: i64) -> AppResult<Vec<Klasse>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, schuljahr_id FROM klasse WHERE schuljahr_id = ?1 ORDER BY name",
+    )?;
+    let rows = stmt.query_map(params![schuljahr_id], |r| {
+        Ok(Klasse { id: r.get(0)?, name: r.get(1)?, schuljahr_id: r.get(2)? })
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+pub fn list_schueler(conn: &Connection, klasse_id: i64) -> AppResult<Vec<SchuelerMini>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, vorname, nachname, sortname
+         FROM schueler WHERE klasse_id = ?1 ORDER BY sortname",
+    )?;
+    let rows = stmt.query_map(params![klasse_id], |r| {
+        Ok(SchuelerMini {
+            id: r.get(0)?,
+            vorname: r.get(1)?,
+            nachname: r.get(2)?,
+            sortname: r.get(3)?,
+        })
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +381,36 @@ mod tests {
             "SELECT COUNT(*) FROM klasse WHERE name = '5b'", [], |r| r.get(0),
         ).unwrap();
         assert_eq!(klasse_5b, 0, "Klasse 5b darf nicht persistiert sein (Rollback)");
+    }
+
+    #[test]
+    fn list_klassen_fuer_schuljahr() {
+        let (_d, mut conn) = fresh_conn();
+        let sj = anlegen(&conn, "2025/26").unwrap();
+        upsert_schueler(&mut conn, sj, &[
+            sample_input(None, "5a", "Anna", "Apfel"),
+            sample_input(None, "5b", "Bert", "Birne"),
+        ]).unwrap();
+        let klassen = list_klassen(&conn, sj).unwrap();
+        assert_eq!(klassen.len(), 2);
+        assert_eq!(klassen[0].name, "5a");
+        assert_eq!(klassen[1].name, "5b");
+    }
+
+    #[test]
+    fn list_schueler_einer_klasse() {
+        let (_d, mut conn) = fresh_conn();
+        let sj = anlegen(&conn, "2025/26").unwrap();
+        upsert_schueler(&mut conn, sj, &[
+            sample_input(None, "5a", "Bert", "Birne"),
+            sample_input(None, "5a", "Anna", "Apfel"),
+            sample_input(None, "5b", "Cora", "Citro"),
+        ]).unwrap();
+        let klassen = list_klassen(&conn, sj).unwrap();
+        let s5a = list_schueler(&conn, klassen[0].id).unwrap();
+        assert_eq!(s5a.len(), 2);
+        // Sortiert nach sortname (Apfel < Birne)
+        assert_eq!(s5a[0].nachname, "Apfel");
+        assert_eq!(s5a[1].nachname, "Birne");
     }
 }

@@ -107,6 +107,8 @@ pub fn run() {
             commands::bemerkung_set,
             commands::legacy_import_preview,
             commands::legacy_import_apply,
+            commands::klassenraum_klassen,
+            commands::klassenraum_schueler,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri-App konnte nicht starten");
