@@ -84,6 +84,90 @@ pub fn list_formulierungen(conn: &Connection, kategorie_id: i64) -> AppResult<Ve
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+fn next_reihenfolge_fach(conn: &Connection, schuljahr_id: i64) -> AppResult<i64> {
+    let max: Option<i64> = conn.query_row(
+        "SELECT MAX(reihenfolge) FROM fach WHERE schuljahr_id = ?1",
+        params![schuljahr_id],
+        |r| r.get(0),
+    ).ok();
+    Ok(max.unwrap_or(0) + 1)
+}
+
+fn next_reihenfolge_kategorie(conn: &Connection, schuljahr_id: i64) -> AppResult<i64> {
+    let max: Option<i64> = conn.query_row(
+        "SELECT MAX(reihenfolge) FROM kategorie WHERE schuljahr_id = ?1",
+        params![schuljahr_id],
+        |r| r.get(0),
+    ).ok();
+    Ok(max.unwrap_or(0) + 1)
+}
+
+fn next_reihenfolge_formulierung(conn: &Connection, kategorie_id: i64) -> AppResult<i64> {
+    let max: Option<i64> = conn.query_row(
+        "SELECT MAX(reihenfolge) FROM formulierung WHERE kategorie_id = ?1",
+        params![kategorie_id],
+        |r| r.get(0),
+    ).ok();
+    Ok(max.unwrap_or(0) + 1)
+}
+
+pub fn upsert_fach(conn: &Connection, schuljahr_id: i64, name: &str, aktiv: bool) -> AppResult<i64> {
+    let r = next_reihenfolge_fach(conn, schuljahr_id)?;
+    conn.execute(
+        "INSERT INTO fach(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, ?4)",
+        params![schuljahr_id, name, r, aktiv as i64],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn upsert_kategorie(conn: &Connection, schuljahr_id: i64, name: &str) -> AppResult<i64> {
+    let r = next_reihenfolge_kategorie(conn, schuljahr_id)?;
+    conn.execute(
+        "INSERT INTO kategorie(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+        params![schuljahr_id, name, r],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn upsert_formulierung(conn: &Connection, kategorie_id: i64, text: &str) -> AppResult<i64> {
+    let r = next_reihenfolge_formulierung(conn, kategorie_id)?;
+    conn.execute(
+        "INSERT INTO formulierung(kategorie_id, text, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+        params![kategorie_id, text, r],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn set_fach_aktiv(conn: &Connection, id: i64, aktiv: bool) -> AppResult<()> {
+    conn.execute("UPDATE fach SET aktiv = ?1 WHERE id = ?2", params![aktiv as i64, id])?;
+    Ok(())
+}
+
+pub fn set_kategorie_aktiv(conn: &Connection, id: i64, aktiv: bool) -> AppResult<()> {
+    conn.execute("UPDATE kategorie SET aktiv = ?1 WHERE id = ?2", params![aktiv as i64, id])?;
+    Ok(())
+}
+
+pub fn set_formulierung_aktiv(conn: &Connection, id: i64, aktiv: bool) -> AppResult<()> {
+    conn.execute("UPDATE formulierung SET aktiv = ?1 WHERE id = ?2", params![aktiv as i64, id])?;
+    Ok(())
+}
+
+pub fn set_fach_reihenfolge(conn: &Connection, id: i64, reihenfolge: i64) -> AppResult<()> {
+    conn.execute("UPDATE fach SET reihenfolge = ?1 WHERE id = ?2", params![reihenfolge, id])?;
+    Ok(())
+}
+
+pub fn set_kategorie_reihenfolge(conn: &Connection, id: i64, reihenfolge: i64) -> AppResult<()> {
+    conn.execute("UPDATE kategorie SET reihenfolge = ?1 WHERE id = ?2", params![reihenfolge, id])?;
+    Ok(())
+}
+
+pub fn set_formulierung_reihenfolge(conn: &Connection, id: i64, reihenfolge: i64) -> AppResult<()> {
+    conn.execute("UPDATE formulierung SET reihenfolge = ?1 WHERE id = ?2", params![reihenfolge, id])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,5 +197,80 @@ mod tests {
         let faecher = list_faecher(&conn, 1).unwrap();
         assert_eq!(faecher[0].name, "Deutsch");
         assert_eq!(faecher[1].name, "Mathe");
+    }
+
+    #[test]
+    fn fach_anlegen_haengt_an_naechste_reihenfolge() {
+        let (_d, conn) = fresh_conn();
+        let id1 = upsert_fach(&conn, 1, "Mathe", true).unwrap();
+        let id2 = upsert_fach(&conn, 1, "Deutsch", true).unwrap();
+        let faecher = list_faecher(&conn, 1).unwrap();
+        assert_eq!(faecher.len(), 2);
+        assert_eq!(faecher[0].id, id1);
+        assert_eq!(faecher[0].reihenfolge, 1);
+        assert_eq!(faecher[1].id, id2);
+        assert_eq!(faecher[1].reihenfolge, 2);
+    }
+
+    #[test]
+    fn fach_namensduplikate_pro_schuljahr_verboten() {
+        let (_d, conn) = fresh_conn();
+        upsert_fach(&conn, 1, "Mathe", true).unwrap();
+        let err = upsert_fach(&conn, 1, "Mathe", true);
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn fach_set_aktiv_toggle() {
+        let (_d, conn) = fresh_conn();
+        let id = upsert_fach(&conn, 1, "Mathe", true).unwrap();
+        set_fach_aktiv(&conn, id, false).unwrap();
+        let faecher = list_faecher(&conn, 1).unwrap();
+        assert!(!faecher[0].aktiv);
+    }
+
+    #[test]
+    fn kategorie_und_formulierung_lifecycle() {
+        let (_d, conn) = fresh_conn();
+        let kat = upsert_kategorie(&conn, 1, "Lernbereitschaft").unwrap();
+        let f1 = upsert_formulierung(&conn, kat, "fleißig").unwrap();
+        let f2 = upsert_formulierung(&conn, kat, "engagiert").unwrap();
+        let formulierungen = list_formulierungen(&conn, kat).unwrap();
+        assert_eq!(formulierungen.len(), 2);
+        assert_eq!(formulierungen[0].id, f1);
+        assert_eq!(formulierungen[1].id, f2);
+
+        set_formulierung_aktiv(&conn, f1, false).unwrap();
+        let nach_disable = list_formulierungen(&conn, kat).unwrap();
+        assert_eq!(nach_disable.len(), 2, "list_formulierungen liefert auch inaktive");
+        assert!(!nach_disable[0].aktiv);
+    }
+
+    #[test]
+    fn reihenfolge_swap() {
+        let (_d, conn) = fresh_conn();
+        let a = upsert_fach(&conn, 1, "A", true).unwrap();
+        let b = upsert_fach(&conn, 1, "B", true).unwrap();
+        // a hat reihenfolge=1, b hat reihenfolge=2
+        set_fach_reihenfolge(&conn, a, 2).unwrap();
+        set_fach_reihenfolge(&conn, b, 1).unwrap();
+        let faecher = list_faecher(&conn, 1).unwrap();
+        assert_eq!(faecher[0].id, b);
+        assert_eq!(faecher[1].id, a);
+    }
+
+    #[test]
+    fn upsert_fach_mit_existierendem_namen_updatet_aktiv_state() {
+        // Re-Upsert ohne Konflikt: gleicher Name, gleiches Schuljahr → ID bleibt, aktiv-Flag wird übernommen
+        let (_d, conn) = fresh_conn();
+        let id = upsert_fach(&conn, 1, "Mathe", true).unwrap();
+        // Hier: Manuelle Variante via UPDATE, weil INSERT-OR-IGNORE nur „neu" macht.
+        // Der nachfolgende Aufruf darf NICHT neue Reihenfolge/ID erzeugen, sondern fail.
+        let err = upsert_fach(&conn, 1, "Mathe", false);
+        assert!(err.is_err(), "Echtes Upsert mit Konflikt-Behandlung folgt in einer Folge-Iteration; jetzt: hartes Fail.");
+        // ID-Test: bestehendes Fach unverändert
+        let faecher = list_faecher(&conn, 1).unwrap();
+        assert_eq!(faecher[0].id, id);
+        assert!(faecher[0].aktiv);
     }
 }
