@@ -85,33 +85,35 @@ pub fn list_formulierungen(conn: &Connection, kategorie_id: i64) -> AppResult<Ve
 }
 
 fn next_reihenfolge_fach(conn: &Connection, schuljahr_id: i64) -> AppResult<i64> {
-    let max: Option<i64> = conn.query_row(
-        "SELECT MAX(reihenfolge) FROM fach WHERE schuljahr_id = ?1",
+    Ok(conn.query_row(
+        "SELECT COALESCE(MAX(reihenfolge), 0) + 1 FROM fach WHERE schuljahr_id = ?1",
         params![schuljahr_id],
         |r| r.get(0),
-    ).ok();
-    Ok(max.unwrap_or(0) + 1)
+    )?)
 }
 
 fn next_reihenfolge_kategorie(conn: &Connection, schuljahr_id: i64) -> AppResult<i64> {
-    let max: Option<i64> = conn.query_row(
-        "SELECT MAX(reihenfolge) FROM kategorie WHERE schuljahr_id = ?1",
+    Ok(conn.query_row(
+        "SELECT COALESCE(MAX(reihenfolge), 0) + 1 FROM kategorie WHERE schuljahr_id = ?1",
         params![schuljahr_id],
         |r| r.get(0),
-    ).ok();
-    Ok(max.unwrap_or(0) + 1)
+    )?)
 }
 
 fn next_reihenfolge_formulierung(conn: &Connection, kategorie_id: i64) -> AppResult<i64> {
-    let max: Option<i64> = conn.query_row(
-        "SELECT MAX(reihenfolge) FROM formulierung WHERE kategorie_id = ?1",
+    Ok(conn.query_row(
+        "SELECT COALESCE(MAX(reihenfolge), 0) + 1 FROM formulierung WHERE kategorie_id = ?1",
         params![kategorie_id],
         |r| r.get(0),
-    ).ok();
-    Ok(max.unwrap_or(0) + 1)
+    )?)
 }
 
 pub fn upsert_fach(conn: &Connection, schuljahr_id: i64, name: &str, aktiv: bool) -> AppResult<i64> {
+    if name.trim().is_empty() {
+        return Err(crate::error::AppError::Config(
+            "Name darf nicht leer sein".into(),
+        ));
+    }
     let r = next_reihenfolge_fach(conn, schuljahr_id)?;
     conn.execute(
         "INSERT INTO fach(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, ?4)",
@@ -121,6 +123,11 @@ pub fn upsert_fach(conn: &Connection, schuljahr_id: i64, name: &str, aktiv: bool
 }
 
 pub fn upsert_kategorie(conn: &Connection, schuljahr_id: i64, name: &str) -> AppResult<i64> {
+    if name.trim().is_empty() {
+        return Err(crate::error::AppError::Config(
+            "Name darf nicht leer sein".into(),
+        ));
+    }
     let r = next_reihenfolge_kategorie(conn, schuljahr_id)?;
     conn.execute(
         "INSERT INTO kategorie(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
@@ -130,6 +137,11 @@ pub fn upsert_kategorie(conn: &Connection, schuljahr_id: i64, name: &str) -> App
 }
 
 pub fn upsert_formulierung(conn: &Connection, kategorie_id: i64, text: &str) -> AppResult<i64> {
+    if text.trim().is_empty() {
+        return Err(crate::error::AppError::Config(
+            "Text darf nicht leer sein".into(),
+        ));
+    }
     let r = next_reihenfolge_formulierung(conn, kategorie_id)?;
     conn.execute(
         "INSERT INTO formulierung(kategorie_id, text, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
@@ -272,5 +284,14 @@ mod tests {
         let faecher = list_faecher(&conn, 1).unwrap();
         assert_eq!(faecher[0].id, id);
         assert!(faecher[0].aktiv);
+    }
+
+    #[test]
+    fn upsert_lehnt_leeren_namen_ab() {
+        let (_d, conn) = fresh_conn();
+        assert!(upsert_fach(&conn, 1, "", true).is_err());
+        assert!(upsert_fach(&conn, 1, "   ", true).is_err());
+        assert!(upsert_kategorie(&conn, 1, "").is_err());
+        assert!(upsert_formulierung(&conn, 1, "").is_err());
     }
 }
