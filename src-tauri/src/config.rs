@@ -10,6 +10,20 @@ pub struct AppConfig {
     pub passwoerter: Passwoerter,
     pub goodies: GoodiesConfig,
     pub lock: LockConfig,
+    #[serde(default)]
+    pub bug_report: BugReportConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BugReportConfig {
+    #[serde(default)]
+    pub github_token: String,
+    #[serde(default = "default_repo")]
+    pub repo: String,
+}
+
+fn default_repo() -> String {
+    "hibbes/Jiraso-reloaded".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -51,6 +65,10 @@ impl Default for AppConfig {
             passwoerter: Passwoerter::default(),
             goodies: GoodiesConfig::default(),
             lock: LockConfig::default(),
+            bug_report: BugReportConfig {
+                github_token: String::new(),
+                repo: default_repo(),
+            },
         }
     }
 }

@@ -371,3 +371,16 @@ pub fn legacy_import_apply(
     let mut conn = open_db(&state)?;
     legacy_import::apply(&mut conn, schuljahr_id, &preview)
 }
+
+use crate::bug_report::{self, IssueResponse};
+
+#[tauri::command]
+pub fn bug_report_submit(
+    titel: String,
+    body: String,
+    state: tauri::State<AppState>,
+) -> AppResult<IssueResponse> {
+    require_lehrer(&state)?;
+    let cfg = state.config.lock().unwrap().clone();
+    bug_report::submit(&cfg, &titel, &body)
+}

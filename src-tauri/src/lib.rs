@@ -21,6 +21,7 @@ pub mod katalog;
 pub mod bewertung;
 pub mod bemerkung;
 pub mod legacy_import;
+pub mod bug_report;
 
 #[cfg(feature = "desktop")]
 pub mod commands;
@@ -109,6 +110,7 @@ pub fn run() {
             commands::legacy_import_apply,
             commands::klassenraum_klassen,
             commands::klassenraum_schueler,
+            commands::bug_report_submit,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri-App konnte nicht starten");
