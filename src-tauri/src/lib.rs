@@ -19,6 +19,7 @@ pub mod stammdaten;
 pub mod import;
 pub mod katalog;
 pub mod bewertung;
+pub mod bemerkung;
 
 #[cfg(feature = "desktop")]
 pub mod commands;
