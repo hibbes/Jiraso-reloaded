@@ -1,6 +1,6 @@
 // src-tauri/src/legacy_import.rs
 use crate::error::{AppError, AppResult};
-use calamine::{Data, Reader, Xlsx};
+use calamine::{open_workbook_auto_from_rs, Data, Reader, Sheets};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 
@@ -59,58 +59,65 @@ pub fn parse_floskeln_blocks(bytes: &[u8]) -> AppResult<Vec<Vec<String>>> {
 /// Heuristik: scanne Spalte A von Zeile 7 abwärts; jede nicht-leere Zelle
 /// startet ein neues Label oder erweitert das laufende, abhängig davon, ob
 /// in Spalte B (Index 1) zwischen den zwei Zellen leere Zellen liegen.
-pub fn parse_format_xls_kategorien(bytes: &[u8]) -> AppResult<Vec<String>> {
-    let mut wb: Xlsx<_> = calamine::open_workbook_from_rs(Cursor::new(bytes))
+/// Liest Kategorie-Namen aus format.xls. Da Spalte B (Formulierungen) zwischen
+/// Block-Anfängen NICHT leer ist (Blöcke schließen direkt aneinander an), brauchen
+/// wir die Block-Größen aus Floskeln.txt als Schnittpunkte. `block_sizes[i]` = Anzahl
+/// Formulierungen im i-ten Kategorie-Block.
+///
+/// Anker: `first_formulation` ist der Wortlaut der ersten Formulierung der ersten
+/// Kategorie. Damit überspringen wir den Schiller-Header in Zeilen 0-6, der ebenfalls
+/// nicht-leere B-Zellen hat (Schulname, Schülername etc).
+///
+/// Algorithmus: Finde Zeile mit Spalte B == first_formulation; ab dort sammle pro
+/// Block `block_sizes[i]` Zeilen, die A-Werte dieser Zeilen werden mit Whitespace
+/// zum Kategorie-Label zusammengefügt.
+pub fn parse_format_xls_kategorien(
+    bytes: &[u8],
+    block_sizes: &[usize],
+    first_formulation: &str,
+) -> AppResult<Vec<String>> {
+    let mut wb: Sheets<_> = open_workbook_auto_from_rs(Cursor::new(bytes))
         .map_err(|e| AppError::Config(format!("format.xls ungültig: {e}")))?;
     let sheet_name = wb.sheet_names().first().cloned()
         .ok_or_else(|| AppError::Config("format.xls hat keine Tabelle".into()))?;
     let range = wb.worksheet_range(&sheet_name)
         .map_err(|e| AppError::Config(format!("Tabelle nicht lesbar: {e}")))?;
 
-    // Wir erwarten Header in Zeile 0..6 und Floskeln ab Zeile 7.
-    // Eine Zeile mit nicht-leerer Spalte A startet ein neues Label oder ergänzt
-    // das laufende. Wir sammeln Labels nach Block-Position: jeder Block beginnt,
-    // wenn Spalte B in einer vorherigen Zeile leer war.
     let rows: Vec<Vec<String>> = range.rows().map(|r| {
         r.iter().map(cell_to_string).collect()
     }).collect();
 
-    if rows.len() < 8 {
-        return Err(AppError::Config("format.xls hat zu wenige Zeilen".into()));
-    }
+    let anker = first_formulation.trim();
+    let body_start = rows.iter().position(|r| {
+        r.get(1).map(|b| b.trim() == anker).unwrap_or(false)
+    }).ok_or_else(|| AppError::Config(format!(
+        "format.xls: Anker-Formulierung '{}' (1. Eintrag aus Floskeln.txt) nicht in Spalte B gefunden",
+        anker
+    )))?;
 
-    let mut labels: Vec<String> = Vec::new();
-    let mut current_label: Vec<String> = Vec::new();
-    let mut last_b_empty = true;
-
-    for r in 7..rows.len() {
-        let row = &rows[r];
-        let a = row.get(0).cloned().unwrap_or_default();
-        let b = row.get(1).cloned().unwrap_or_default();
-        let a_trim = a.trim().to_string();
-        let b_empty = b.trim().is_empty();
-
-        // Block-Wechsel = Spalte B vorher leer und jetzt voll
-        if last_b_empty && !b_empty {
-            // Wir schließen das vorherige Label ab (falls vorhanden)
-            if !current_label.is_empty() {
-                labels.push(current_label.join(" ").trim().to_string());
-                current_label.clear();
-            }
+    let mut labels: Vec<String> = Vec::with_capacity(block_sizes.len());
+    let mut row_idx = body_start;
+    for &size in block_sizes {
+        if size == 0 { continue; }
+        if row_idx + size > rows.len() {
+            return Err(AppError::Config(format!(
+                "format.xls zu kurz für erwartete Block-Größen (brauche ab Zeile {} noch {} Zeilen)",
+                row_idx, size
+            )));
         }
-
-        if !a_trim.is_empty() {
-            current_label.push(a_trim.clone());
+        let label_parts: Vec<String> = rows[row_idx..row_idx + size].iter()
+            .filter_map(|r| r.get(0).map(|s| s.trim().to_string()))
+            .filter(|s| !s.is_empty())
+            .collect();
+        let label = label_parts.join(" ").trim().to_string();
+        if label.is_empty() {
+            return Err(AppError::Config(format!(
+                "format.xls: Block ab Zeile {} hat keinen Kategorie-Namen in Spalte A",
+                row_idx
+            )));
         }
-        last_b_empty = b_empty;
-
-        // Abbruch: Footer "zusätzliche Bemerkungen" markiert Ende
-        if a_trim.to_lowercase().contains("bemerkungen") || a_trim.starts_with("Offenburg") {
-            break;
-        }
-    }
-    if !current_label.is_empty() {
-        labels.push(current_label.join(" ").trim().to_string());
+        labels.push(label);
+        row_idx += size;
     }
     Ok(labels)
 }
@@ -125,7 +132,10 @@ pub fn parse_alle(
 ) -> AppResult<LegacyImportPreview> {
     let faecher = parse_faecher(faecher_bytes)?;
     let blocks = parse_floskeln_blocks(floskeln_bytes)?;
-    let labels = parse_format_xls_kategorien(format_bytes)?;
+    let block_sizes: Vec<usize> = blocks.iter().map(|b| b.len()).collect();
+    let first_formulation = blocks.first().and_then(|b| b.first()).cloned()
+        .ok_or_else(|| AppError::Config("Floskeln.txt enthält keine Formulierungen".into()))?;
+    let labels = parse_format_xls_kategorien(format_bytes, &block_sizes, &first_formulation)?;
     if blocks.len() != labels.len() {
         return Err(AppError::Config(format!(
             "Anzahl Floskel-Blöcke ({}) passt nicht zur Anzahl Kategorie-Labels ({}). \
@@ -202,5 +212,33 @@ mod tests {
         // Stattdessen: Test der Mismatch-Erkennung über parse_alle nicht möglich ohne real-Daten.
         // Wir testen den Pfad indirekt im Integrationstest in Task 8 mit fixture-Files.
         let _ = (faecher, floskeln);
+    }
+
+    /// Integrationstest gegen die echten Schiller-Legacy-Files. Nur lokal sinnvoll;
+    /// auf CI nicht verfügbar (deshalb #[ignore]). Manuell ausführen mit
+    /// `cargo test --no-default-features --lib legacy_import_real -- --include-ignored`.
+    #[test]
+    #[ignore]
+    fn parse_alle_gegen_echtes_schiller_paket() {
+        let base = "/home/neo/verbalbeurteilung-analyse/ProgrammPaket/ProgrammPaket";
+        let faecher = std::fs::read(format!("{base}/Fächer.txt")).unwrap();
+        let floskeln = std::fs::read(format!("{base}/Floskeln.txt")).unwrap();
+        let format = std::fs::read(format!("{base}/format.xls")).unwrap();
+        let preview = parse_alle(&faecher, &floskeln, &format).unwrap();
+        assert_eq!(preview.faecher.len(), 12);
+        assert_eq!(preview.faecher[0], "Mathematik");
+        assert_eq!(preview.kategorien.len(), 7);
+        let namen: Vec<&str> = preview.kategorien.iter().map(|k| k.name.as_str()).collect();
+        assert_eq!(namen, vec![
+            "Lernbereitschaft",
+            "Auffassungsgabe",
+            "Beteiligung am Unterricht",
+            "Selbstständigkeit und Kreativität",
+            "Sorgfalt",
+            "Einhalten von Regeln",
+            "Soziales Verhalten",
+        ]);
+        assert_eq!(preview.kategorien[0].formulierungen.len(), 4);
+        assert_eq!(preview.kategorien[2].formulierungen.len(), 5); // Beteiligung
     }
 }
