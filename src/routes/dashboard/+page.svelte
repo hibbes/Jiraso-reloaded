@@ -16,22 +16,15 @@
     tbd?: boolean;
   };
 
-  const kacheln = $derived.by<Kachel[]>(() => {
+  const kacheln = $derived.by<(Kachel & { href?: string })[]>(() => {
     if (!session.rolle) return [];
-    const all: Kachel[] = [
+    const all: (Kachel & { href?: string })[] = [
       {
         titel: 'Bewertung eingeben',
-        beschreibung: '7 Kategorien pro Fach, Ziffern 0–4',
+        beschreibung: 'Matrix Schüler×Kategorie pro Fach, Bemerkung im Detail-Panel',
         rollen: ['fachlehrer', 'klassenlehrer', 'administrator'],
         icon: '📝',
-        tbd: true,
-      },
-      {
-        titel: 'Bemerkung eingeben',
-        beschreibung: 'Individuelle Verbalbeurteilung je Schüler:in',
-        rollen: ['klassenlehrer', 'administrator'],
-        icon: '💬',
-        tbd: true,
+        href: '/bewertung',
       },
       {
         titel: 'Übersicht',
@@ -48,11 +41,18 @@
         tbd: true,
       },
       {
-        titel: 'Formulierungen verwalten',
-        beschreibung: 'Fächer, Kategorien, Standard-Floskeln',
+        titel: 'Katalog verwalten',
+        beschreibung: 'Fächer, Kategorien, Formulierungen',
         rollen: ['administrator'],
         icon: '⚙️',
-        tbd: true,
+        href: '/admin/katalog',
+      },
+      {
+        titel: 'Legacy-Import',
+        beschreibung: 'Fächer.txt + Floskeln.txt + format.xls aus altem Jiraso',
+        rollen: ['administrator'],
+        icon: '📦',
+        href: '/admin/legacy-import',
       },
       {
         titel: 'Datenverwaltung',
@@ -80,14 +80,22 @@
 
 <div class="grid">
   {#each kacheln as k}
-    <div class="card kachel" class:disabled={k.tbd}>
-      <div class="kachel-icon" aria-hidden="true">{k.icon}</div>
-      <h3>{k.titel}</h3>
-      <p class="kachel-desc text-small text-muted">{k.beschreibung}</p>
-      {#if k.tbd}
-        <span class="badge badge-gold kachel-badge">in Planung</span>
-      {/if}
-    </div>
+    {#if k.href}
+      <a href={k.href} class="card kachel">
+        <div class="kachel-icon" aria-hidden="true">{k.icon}</div>
+        <h3>{k.titel}</h3>
+        <p class="kachel-desc text-small text-muted">{k.beschreibung}</p>
+      </a>
+    {:else}
+      <div class="card kachel" class:disabled={k.tbd}>
+        <div class="kachel-icon" aria-hidden="true">{k.icon}</div>
+        <h3>{k.titel}</h3>
+        <p class="kachel-desc text-small text-muted">{k.beschreibung}</p>
+        {#if k.tbd}
+          <span class="badge badge-gold kachel-badge">in Planung</span>
+        {/if}
+      </div>
+    {/if}
   {/each}
 </div>
 
@@ -108,6 +116,14 @@
   }
   .kachel.disabled {
     opacity: 0.85;
+  }
+  a.kachel {
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow 0.15s ease;
+  }
+  a.kachel:hover {
+    box-shadow: var(--sg-shadow-hover);
   }
   .kachel-icon {
     font-size: 1.8rem;
