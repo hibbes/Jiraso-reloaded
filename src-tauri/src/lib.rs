@@ -20,6 +20,7 @@ pub mod import;
 pub mod katalog;
 pub mod bewertung;
 pub mod bemerkung;
+pub mod legacy_import;
 
 #[cfg(feature = "desktop")]
 pub mod commands;
