@@ -55,7 +55,7 @@ fn keywords(kind: FieldKind) -> &'static [&'static str] {
         FieldKind::Uuid => &["uuid", "asvuuid", "id", "schuelerid"],
         FieldKind::Klasse => &["klasse", "klassenbezeichnung", "klassestufe"],
         FieldKind::Nachname => &["nachname", "familienname", "name"],
-        FieldKind::Vorname => &["vorname", "rufname"],
+        FieldKind::Vorname => &["vorname", "vornamen", "rufname"],
     }
 }
 
@@ -113,6 +113,64 @@ use crate::error::{AppError, AppResult};
 use crate::stammdaten::SchuelerInput;
 use calamine::{Data, Reader, Xlsx};
 use std::io::Cursor;
+
+/// Erkennt das Format anhand der ersten Bytes: ZIP/XLSX-Magic `PK\x03\x04`
+/// → XLSX, sonst CSV. ASV-BW liefert XLSX, Jiraso-Legacy-Export liefert
+/// `;`-getrennte CSV (UTF-8 oder Windows-1252).
+pub fn parse_sheet(bytes: &[u8]) -> AppResult<ParsedSheet> {
+    if bytes.starts_with(b"PK\x03\x04") {
+        parse_xlsx(bytes)
+    } else {
+        parse_csv(bytes)
+    }
+}
+
+/// Parst CSV-Bytes mit auto-erkanntem Delimiter (`;` oder `,`) und
+/// Encoding-Fallback UTF-8 → Windows-1252. Leere Zeilen werden verworfen.
+pub fn parse_csv(bytes: &[u8]) -> AppResult<ParsedSheet> {
+    let text = decode_text(bytes);
+    let trimmed = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    let delimiter = detect_delimiter(trimmed);
+
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(delimiter)
+        .has_headers(false)
+        .flexible(true)
+        .from_reader(trimmed.as_bytes());
+
+    let mut iter = rdr.records();
+    let header_rec = iter.next()
+        .ok_or_else(|| AppError::Config("CSV ist leer".into()))?
+        .map_err(|e| AppError::Config(format!("CSV-Header nicht lesbar: {e}")))?;
+    let headers: Vec<String> = header_rec.iter().map(|s| s.trim().to_string()).collect();
+
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    for rec in iter {
+        let rec = rec.map_err(|e| AppError::Config(format!("CSV-Zeile nicht lesbar: {e}")))?;
+        let row: Vec<String> = rec.iter().map(|s| s.trim().to_string()).collect();
+        if row.iter().any(|c| !c.is_empty()) {
+            rows.push(row);
+        }
+    }
+    Ok(ParsedSheet { headers, rows })
+}
+
+fn decode_text(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(s) => s.to_string(),
+        Err(_) => {
+            let (cow, _, _) = encoding_rs::WINDOWS_1252.decode(bytes);
+            cow.into_owned()
+        }
+    }
+}
+
+fn detect_delimiter(text: &str) -> u8 {
+    let first = text.lines().next().unwrap_or("");
+    let semis = first.matches(';').count();
+    let commas = first.matches(',').count();
+    if semis >= commas { b';' } else { b',' }
+}
 
 /// Parst XLSX-Bytes und extrahiert die erste Tabelle.
 /// Erwartet eine Header-Zeile oben; weitere Zeilen sind Datensätze.
@@ -264,6 +322,88 @@ mod tests {
         let input = build_inputs(&sheet, &mapping);
         assert_eq!(input.len(), 1);
         assert_eq!(input[0].vorname, "Anna");
+    }
+
+    #[test]
+    fn parse_csv_semikolon_utf8() {
+        let bytes = b"Nr.;Vornamen;Familienname;Klasse;ID\n1;Anna;Apfel;5a;uuid-1\n2;Bert;Birne;5b;uuid-2\n";
+        let sheet = parse_csv(bytes).unwrap();
+        assert_eq!(sheet.headers, vec!["Nr.", "Vornamen", "Familienname", "Klasse", "ID"]);
+        assert_eq!(sheet.rows.len(), 2);
+        assert_eq!(sheet.rows[0][1], "Anna");
+        assert_eq!(sheet.rows[1][2], "Birne");
+    }
+
+    #[test]
+    fn parse_csv_verwirft_leere_zeilen() {
+        let bytes = b"a;b\n1;2\n;\n3;4\n";
+        let sheet = parse_csv(bytes).unwrap();
+        assert_eq!(sheet.rows.len(), 2);
+    }
+
+    #[test]
+    fn parse_csv_windows1252_fallback() {
+        // "Müller" in Windows-1252: M=0x4D ü=0xFC l=0x6C l=0x6C e=0x65 r=0x72
+        let bytes = b"Klasse;Familienname;Vorname\n5a;M\xfcller;Anna\n";
+        let sheet = parse_csv(bytes).unwrap();
+        assert_eq!(sheet.rows[0][1], "Müller");
+    }
+
+    #[test]
+    fn parse_csv_strippt_utf8_bom() {
+        let mut bytes = b"\xef\xbb\xbf".to_vec();
+        bytes.extend_from_slice(b"Klasse;Vorname;Nachname\n5a;Anna;Apfel\n");
+        let sheet = parse_csv(&bytes).unwrap();
+        assert_eq!(sheet.headers[0], "Klasse");
+    }
+
+    #[test]
+    fn parse_sheet_erkennt_xlsx_via_magic() {
+        let xlsx = make_xlsx(&[
+            &["Klasse", "Nachname", "Vorname"],
+            &["5a", "Apfel", "Anna"],
+        ]);
+        let sheet = parse_sheet(&xlsx).unwrap();
+        assert_eq!(sheet.rows.len(), 1);
+        assert_eq!(sheet.rows[0][2], "Anna");
+    }
+
+    #[test]
+    fn parse_sheet_faellt_auf_csv_zurueck() {
+        let csv = b"Klasse;Vorname;Nachname\n5a;Anna;Apfel\n";
+        let sheet = parse_sheet(csv).unwrap();
+        assert_eq!(sheet.headers.len(), 3);
+        assert_eq!(sheet.rows[0][1], "Anna");
+    }
+
+    #[test]
+    fn jiraso_export_format_wird_erkannt() {
+        // Format aus dem Legacy-Jiraso-Export (verbal_Schueler.csv)
+        let bytes = b"Nr.;Vornamen;Familienname;Klasse;ID\n\
+                      1;Nailya;Abb;5c;40288081-9589db3b-0195-93c7bed8-5af6\n\
+                      2;Clara Sophie;Abs;5b;40288081-9589db3b-0195-93c7b20b-52bd\n";
+        let sheet = parse_csv(bytes).unwrap();
+        match detect_columns(&sheet.headers) {
+            DetectResult::Ok(m) => {
+                assert_eq!(m.klasse, 3);
+                assert_eq!(m.nachname, 2);
+                assert_eq!(m.vorname, 1);
+                assert_eq!(m.uuid, Some(4));
+            }
+            DetectResult::Ambiguous { suggestions, .. } => {
+                panic!("erwartet eindeutige Erkennung, bekommen: {suggestions:?}");
+            }
+        }
+        let mapping = match detect_columns(&sheet.headers) {
+            DetectResult::Ok(m) => m,
+            _ => unreachable!(),
+        };
+        let inputs = build_inputs(&sheet, &mapping);
+        assert_eq!(inputs.len(), 2);
+        assert_eq!(inputs[0].vorname, "Nailya");
+        assert_eq!(inputs[1].vorname, "Clara Sophie");
+        assert_eq!(inputs[0].klasse, "5c");
+        assert!(inputs[0].asv_uuid.as_deref().unwrap().starts_with("40288081-"));
     }
 
     #[test]

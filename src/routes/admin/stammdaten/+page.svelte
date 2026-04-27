@@ -4,7 +4,7 @@
   import { session } from '$lib/session.svelte';
   import {
     stammdaten,
-    importXlsx,
+    importStammdaten,
     type Schuljahr,
     type ColumnMapping,
     type ImportPreview,
@@ -67,7 +67,7 @@
     try {
       const buf = new Uint8Array(await f.arrayBuffer());
       bytesBuffer = Array.from(buf);
-      preview = await importXlsx.preview(bytesBuffer);
+      preview = await importStammdaten.preview(bytesBuffer);
       if ('Ok' in preview.detection) {
         mapping = preview.detection.Ok;
       } else {
@@ -90,7 +90,7 @@
     if (!bytesBuffer || !mapping || ausgewaehltesSchuljahr === null) return;
     fehler = null;
     try {
-      summary = await importXlsx.apply(
+      summary = await importStammdaten.apply(
         ausgewaehltesSchuljahr,
         bytesBuffer,
         mapping
@@ -159,9 +159,10 @@
 
   {#if schritt === 'datei'}
     <section>
-      <h2>2. XLSX-Datei aus ASV-BW wählen</h2>
-      <p>Erwartete Spalten: ASV-UUID (optional), Klasse, Nachname, Vorname.</p>
-      <input type="file" accept=".xlsx" onchange={dateiGewaehlt} />
+      <h2>2. Stammdaten-Datei wählen (XLSX oder CSV)</h2>
+      <p>Erwartete Spalten: ID/UUID (optional), Klasse, Nachname/Familienname, Vorname/Vornamen.</p>
+      <p>XLSX aus ASV-BW oder CSV-Export aus dem Legacy-Jiraso (z.&nbsp;B. <code>verbal_Schueler.csv</code>, Semikolon-getrennt).</p>
+      <input type="file" accept=".xlsx,.csv" onchange={dateiGewaehlt} />
       <button onclick={zurueck}>Abbrechen</button>
     </section>
   {/if}
