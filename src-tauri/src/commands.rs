@@ -166,25 +166,25 @@ pub struct ImportPreview {
 }
 
 #[tauri::command]
-pub fn import_xlsx_preview(
+pub fn import_preview(
     bytes: Vec<u8>,
     state: tauri::State<AppState>,
 ) -> AppResult<ImportPreview> {
     require_admin(&state)?;
-    let sheet = import::parse_xlsx(&bytes)?;
+    let sheet = import::parse_sheet(&bytes)?;
     let detection = import::detect_columns(&sheet.headers);
     Ok(ImportPreview { sheet, detection })
 }
 
 #[tauri::command]
-pub fn import_xlsx_apply(
+pub fn import_apply(
     schuljahr_id: i64,
     bytes: Vec<u8>,
     mapping: ColumnMapping,
     state: tauri::State<AppState>,
 ) -> AppResult<ImportSummary> {
     require_admin(&state)?;
-    let sheet = import::parse_xlsx(&bytes)?;
+    let sheet = import::parse_sheet(&bytes)?;
     let records = import::build_inputs(&sheet, &mapping);
     let mut conn = open_db(&state)?;
     stammdaten::upsert_schueler(&mut conn, schuljahr_id, &records)

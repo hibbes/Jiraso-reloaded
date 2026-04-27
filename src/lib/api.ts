@@ -99,11 +99,11 @@ export const stammdaten = {
   aktivieren: (id: number) => invoke<void>('schuljahr_aktivieren', { id })
 };
 
-export const importXlsx = {
+export const importStammdaten = {
   preview: (bytes: number[]) =>
-    invoke<ImportPreview>('import_xlsx_preview', { bytes }),
+    invoke<ImportPreview>('import_preview', { bytes }),
   apply: (schuljahrId: number, bytes: number[], mapping: ColumnMapping) =>
-    invoke<ImportSummary>('import_xlsx_apply', {
+    invoke<ImportSummary>('import_apply', {
       schuljahrId,
       bytes,
       mapping

@@ -16,3 +16,16 @@ Ziel-Export-Spalten (in dieser Reihenfolge empfohlen, Reihenfolge ist aber egal 
 | `Vorname` | Rufname |
 
 Format: XLSX. Header-Zeile oben. Eine Zeile pro Schüler:in.
+
+## CSV-Import (Legacy-Jiraso)
+
+Alternativ akzeptiert Jiraso-reloaded eine CSV mit Semikolon-Trennzeichen, wie sie der alte Java-Jiraso aus dem Menü „Schüler exportieren" erzeugt (`verbal_Schueler.csv`). Erkannte Header:
+
+| Spalte | Bedeutung |
+|---|---|
+| `Vornamen` / `Vorname` / `Rufname` | Rufname(n) |
+| `Familienname` / `Nachname` | Familienname |
+| `Klasse` | z. B. „5a", „6c" |
+| `ID` / `UUID` / `ASV-UUID` (optional) | stabile Schüler-ID |
+
+Zusätzliche Spalten wie `Nr.` werden ignoriert. Eine Footer-Zeile (z. B. `Insgesamt:;295`) wird automatisch verworfen, weil sie keine Klasse enthält. Encoding: UTF-8 bevorzugt, Windows-1252 als Fallback.
