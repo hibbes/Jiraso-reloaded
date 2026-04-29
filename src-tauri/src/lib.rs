@@ -20,7 +20,6 @@ pub mod import;
 pub mod katalog;
 pub mod bewertung;
 pub mod bemerkung;
-pub mod legacy_import;
 pub mod bug_report;
 
 #[cfg(feature = "desktop")]
@@ -95,6 +94,7 @@ pub fn run() {
             commands::katalog_formulierungen,
             commands::katalog_fach_anlegen,
             commands::katalog_seed_default_faecher,
+            commands::katalog_seed_default_floskeln,
             commands::katalog_kategorie_anlegen,
             commands::katalog_formulierung_anlegen,
             commands::katalog_fach_aktiv,
@@ -107,8 +107,6 @@ pub fn run() {
             commands::bewertung_set,
             commands::bemerkung_get,
             commands::bemerkung_set,
-            commands::legacy_import_preview,
-            commands::legacy_import_apply,
             commands::klassenraum_klassen,
             commands::klassenraum_schueler,
             commands::bug_report_submit,

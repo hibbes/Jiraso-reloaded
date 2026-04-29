@@ -151,6 +151,13 @@ export const katalog = {
       'katalog_seed_default_faecher',
       { schuljahrId }
     ),
+  seedDefaultFloskeln: (schuljahrId: number) =>
+    invoke<{
+      neue_kategorien: number;
+      uebersprungene_kategorien: number;
+      neue_formulierungen: number;
+      uebersprungene_formulierungen: number;
+    }>('katalog_seed_default_floskeln', { schuljahrId }),
   kategorieAnlegen: (schuljahrId: number, name: string) =>
     invoke<number>('katalog_kategorie_anlegen', { schuljahrId, name }),
   formulierungAnlegen: (kategorieId: number, text: string) =>
@@ -206,34 +213,6 @@ export const bemerkung = {
     invoke<[string, string] | null>('bemerkung_get', { schuelerId }),
   set: (schuelerId: number, text: string, vorherigerStand: string | null) =>
     invoke<SetResult>('bemerkung_set', { schuelerId, text, vorherigerStand })
-};
-
-// --- Legacy-Import ---
-
-export type LegacyKategorie = {
-  name: string;
-  formulierungen: string[];
-};
-
-export type LegacyImportPreview = {
-  faecher: string[];
-  kategorien: LegacyKategorie[];
-};
-
-export type LegacyImportSummary = {
-  neue_faecher: number;
-  neue_kategorien: number;
-  neue_formulierungen: number;
-  uebersprungene_faecher: number;
-  uebersprungene_kategorien: number;
-  uebersprungene_formulierungen: number;
-};
-
-export const legacyImport = {
-  preview: (faecherBytes: number[], floskelnBytes: number[], formatBytes: number[]) =>
-    invoke<LegacyImportPreview>('legacy_import_preview', { faecherBytes, floskelnBytes, formatBytes }),
-  apply: (schuljahrId: number, preview: LegacyImportPreview) =>
-    invoke<LegacyImportSummary>('legacy_import_apply', { schuljahrId, preview })
 };
 
 // --- Klassen + Schüler (für Bewertungs-Matrix, Backend Task 11) ---

@@ -206,7 +206,7 @@ pub fn import_apply(
 
 // --- Katalog-Commands ---
 
-use crate::katalog::{self, Fach, Formulierung, Kategorie, SeedSummary};
+use crate::katalog::{self, Fach, FloskelnSeedSummary, Formulierung, Kategorie, SeedSummary};
 
 #[tauri::command]
 pub fn katalog_faecher(schuljahr_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<Fach>> {
@@ -241,6 +241,13 @@ pub fn katalog_seed_default_faecher(schuljahr_id: i64, state: tauri::State<AppSt
     require_admin(&state)?;
     let conn = open_db(&state)?;
     katalog::seed_default_faecher(&conn, schuljahr_id)
+}
+
+#[tauri::command]
+pub fn katalog_seed_default_floskeln(schuljahr_id: i64, state: tauri::State<AppState>) -> AppResult<FloskelnSeedSummary> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::seed_default_floskeln(&conn, schuljahr_id)
 }
 
 #[tauri::command]
@@ -351,32 +358,6 @@ pub fn klassenraum_schueler(klasse_id: i64, state: tauri::State<AppState>) -> Ap
     require_lehrer(&state)?;
     let conn = open_db(&state)?;
     stammdaten::list_schueler(&conn, klasse_id)
-}
-
-// --- Legacy-Import ---
-
-use crate::legacy_import::{self, LegacyImportPreview, LegacyImportSummary};
-
-#[tauri::command]
-pub fn legacy_import_preview(
-    faecher_bytes: Vec<u8>,
-    floskeln_bytes: Vec<u8>,
-    format_bytes: Vec<u8>,
-    state: tauri::State<AppState>,
-) -> AppResult<LegacyImportPreview> {
-    require_admin(&state)?;
-    legacy_import::parse_alle(&faecher_bytes, &floskeln_bytes, &format_bytes)
-}
-
-#[tauri::command]
-pub fn legacy_import_apply(
-    schuljahr_id: i64,
-    preview: LegacyImportPreview,
-    state: tauri::State<AppState>,
-) -> AppResult<LegacyImportSummary> {
-    require_admin(&state)?;
-    let mut conn = open_db(&state)?;
-    legacy_import::apply(&mut conn, schuljahr_id, &preview)
 }
 
 use crate::bug_report::{self, IssueResponse};

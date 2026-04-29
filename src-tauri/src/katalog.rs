@@ -130,6 +130,115 @@ pub struct SeedSummary {
     pub uebersprungene_faecher: usize,
 }
 
+/// Default-Kategorien + Formulierungen aus dem ursprünglichen Jiraso 2021
+/// (Floskeln.txt + format.xls). 7 Kategorien mit 27 Formulierungen gesamt.
+pub const DEFAULT_KATEGORIEN: &[(&str, &[&str])] = &[
+    ("Lernbereitschaft", &[
+        "zeigte großes Interesse und arbeitete stets fleißig, konzentriert und ausdauernd.",
+        "zeigte Interesse und arbeitete in der Regel konzentriert und ausdauernd.",
+        "war nur teilweise interessiert und aufmerksam.",
+        "zeigte geringes Interesse, war häufig unaufmerksam und störte oft die Konzentration anderer.",
+    ]),
+    ("Auffassungsgabe", &[
+        "fasste anspruchsvolle Inhalte rasch und sicher auf.",
+        "eignete sich neuen Stoff in angemessener Zeit an.",
+        "hatte Mühe und brauchte Zeit, um neue Inhalte zu begreifen.",
+    ]),
+    ("Beteiligung am Unterricht", &[
+        "beteiligte sich stets mit bereichernden Beiträgen.",
+        "beteiligte sich regelmäßig mit meist konstruktiven Beiträgen.",
+        "verfolgte den Unterricht aufmerksam, aber zurückhaltend.",
+        "beteiligte sich, jedoch nicht immer sachdienlich.",
+        "beteiligte sich selten am Unterricht.",
+    ]),
+    ("Selbstständigkeit und Kreativität", &[
+        "arbeitete selbstständig und zielgerichtet.",
+        "kam in der Regel gut allein zurecht.",
+        "brauchte oft zusätzliche Anleitung.",
+    ]),
+    ("Sorgfalt", &[
+        "arbeitete gewissenhaft und sorgfältig.",
+        "arbeitete in der Regel ordentlich.",
+        "führte Aufgaben nachlässig aus.",
+    ]),
+    ("Einhalten von Regeln", &[
+        "hielt vereinbarte Regeln stets ein.",
+        "hielt vereinbarte Regeln überwiegend ein.",
+        "überschritt gelegentlich die Regeln.",
+        "überschritt häufig die Regeln.",
+    ]),
+    ("Soziales Verhalten", &[
+        "brachte sich aktiv in die Klasse ein.",
+        "verhielt sich gegenüber den Mitschülern freundlich und hilfsbereit.",
+        "verhielt sich den Mitschülern gegenüber angemessen.",
+        "verhielt sich den Mitschülern gegenüber nicht immer angemessen.",
+        "tat sich schwer, die Bedürfnisse der Mitschüler wahrzunehmen und verhielt sich teilweise rücksichtslos.",
+    ]),
+];
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FloskelnSeedSummary {
+    pub neue_kategorien: usize,
+    pub uebersprungene_kategorien: usize,
+    pub neue_formulierungen: usize,
+    pub uebersprungene_formulierungen: usize,
+}
+
+/// Legt die 7 Default-Kategorien mit ihren Formulierungen im Schuljahr an.
+/// Bestehende Kategorien werden weitergenutzt; bestehende Formulierungen
+/// (Text-Match) werden übersprungen, neue hinten angehängt.
+pub fn seed_default_floskeln(conn: &Connection, schuljahr_id: i64) -> AppResult<FloskelnSeedSummary> {
+    let mut sum = FloskelnSeedSummary {
+        neue_kategorien: 0,
+        uebersprungene_kategorien: 0,
+        neue_formulierungen: 0,
+        uebersprungene_formulierungen: 0,
+    };
+
+    for (kat_name, formulierungen) in DEFAULT_KATEGORIEN {
+        let kat_id: i64 = match conn.query_row(
+            "SELECT id FROM kategorie WHERE schuljahr_id = ?1 AND name = ?2",
+            params![schuljahr_id, kat_name],
+            |r| r.get(0),
+        ) {
+            Ok(id) => {
+                sum.uebersprungene_kategorien += 1;
+                id
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                let r = next_reihenfolge_kategorie(conn, schuljahr_id)?;
+                conn.execute(
+                    "INSERT INTO kategorie(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+                    params![schuljahr_id, kat_name, r],
+                )?;
+                sum.neue_kategorien += 1;
+                conn.last_insert_rowid()
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+        let bestehende_texte: std::collections::HashSet<String> = {
+            let mut stmt = conn.prepare("SELECT text FROM formulierung WHERE kategorie_id = ?1")?;
+            let rows = stmt.query_map(params![kat_id], |r| r.get::<_, String>(0))?;
+            rows.collect::<Result<_, _>>()?
+        };
+
+        for text in *formulierungen {
+            if bestehende_texte.contains(*text) {
+                sum.uebersprungene_formulierungen += 1;
+                continue;
+            }
+            let r = next_reihenfolge_formulierung(conn, kat_id)?;
+            conn.execute(
+                "INSERT INTO formulierung(kategorie_id, text, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+                params![kat_id, text, r],
+            )?;
+            sum.neue_formulierungen += 1;
+        }
+    }
+    Ok(sum)
+}
+
 /// Legt die 12 Default-Fächer im angegebenen Schuljahr an. Bestehende
 /// Fächer (Name-Match, case-sensitive) werden übersprungen, neue
 /// hinten an die existierende Reihenfolge angehängt.
@@ -357,6 +466,43 @@ mod tests {
         let zweiter_lauf = seed_default_faecher(&conn, 1).unwrap();
         assert_eq!(zweiter_lauf.neue_faecher, 0);
         assert_eq!(zweiter_lauf.uebersprungene_faecher, 12);
+    }
+
+    #[test]
+    fn seed_default_floskeln_legt_alle_an() {
+        let (_d, conn) = fresh_conn();
+        let sum = seed_default_floskeln(&conn, 1).unwrap();
+        assert_eq!(sum.neue_kategorien, 7);
+        assert_eq!(sum.neue_formulierungen, 27);
+        let kats = list_kategorien(&conn, 1).unwrap();
+        assert_eq!(kats.len(), 7);
+        assert_eq!(kats[0].name, "Lernbereitschaft");
+        let formulierungen = list_formulierungen(&conn, kats[0].id).unwrap();
+        assert_eq!(formulierungen.len(), 4);
+    }
+
+    #[test]
+    fn seed_default_floskeln_idempotent() {
+        let (_d, conn) = fresh_conn();
+        seed_default_floskeln(&conn, 1).unwrap();
+        let zweiter = seed_default_floskeln(&conn, 1).unwrap();
+        assert_eq!(zweiter.neue_kategorien, 0);
+        assert_eq!(zweiter.uebersprungene_kategorien, 7);
+        assert_eq!(zweiter.neue_formulierungen, 0);
+        assert_eq!(zweiter.uebersprungene_formulierungen, 27);
+    }
+
+    #[test]
+    fn seed_default_floskeln_haengt_an_bestehende_kategorie_an() {
+        let (_d, conn) = fresh_conn();
+        let kat = upsert_kategorie(&conn, 1, "Lernbereitschaft").unwrap();
+        upsert_formulierung(&conn, kat, "eigene Formulierung").unwrap();
+        let sum = seed_default_floskeln(&conn, 1).unwrap();
+        assert_eq!(sum.uebersprungene_kategorien, 1);
+        assert_eq!(sum.neue_kategorien, 6);
+        let f = list_formulierungen(&conn, kat).unwrap();
+        assert_eq!(f.len(), 5, "eigene + 4 Default-Formulierungen");
+        assert_eq!(f[0].text, "eigene Formulierung");
     }
 
     #[test]

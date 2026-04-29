@@ -48,13 +48,6 @@
         href: '/admin/katalog',
       },
       {
-        titel: 'Legacy-Import',
-        beschreibung: 'Fächer.txt + Floskeln.txt + format.xls aus altem Jiraso',
-        rollen: ['administrator'],
-        icon: '📦',
-        href: '/admin/legacy-import',
-      },
-      {
         titel: 'Datenverwaltung',
         beschreibung: 'Schüler:innen importieren, Jahreswechsel',
         rollen: ['administrator'],

@@ -61,6 +61,7 @@
   }
 
   let seedHinweis = $state<string | null>(null);
+  let floskelnHinweis = $state<string | null>(null);
   async function seedDefaults() {
     if (!aktivesSchuljahr) return;
     fehler = null;
@@ -69,6 +70,17 @@
       const sum = await katalog.seedDefaultFaecher(aktivesSchuljahr.id);
       seedHinweis = `${sum.neue_faecher} neue Fächer angelegt, ${sum.uebersprungene_faecher} übersprungen (existieren bereits).`;
       await refreshFaecher();
+    } catch (e) { fehler = String(e); }
+  }
+  async function seedDefaultFloskeln() {
+    if (!aktivesSchuljahr) return;
+    fehler = null;
+    floskelnHinweis = null;
+    try {
+      const sum = await katalog.seedDefaultFloskeln(aktivesSchuljahr.id);
+      floskelnHinweis = `${sum.neue_kategorien} neue Kategorien, ${sum.neue_formulierungen} neue Formulierungen angelegt (${sum.uebersprungene_kategorien} Kat. + ${sum.uebersprungene_formulierungen} Form. übersprungen).`;
+      await refreshKategorien();
+      await refreshFormulierungen();
     } catch (e) { fehler = String(e); }
   }
   async function kategorieAnlegen() {
@@ -198,6 +210,12 @@
         </ul>
         <input placeholder="Neue Kategorie" bind:value={neuName} onkeydown={(e) => e.key === 'Enter' && kategorieAnlegen()} />
         <button onclick={kategorieAnlegen}>+ Anlegen</button>
+        <p class="seed-row">
+          <button onclick={seedDefaultFloskeln} title="Legt die 7 Standard-Kategorien aus dem urspruenglichen Jiraso an (Lernbereitschaft, Auffassungsgabe, Beteiligung, Selbststaendigkeit/Kreativitaet, Sorgfalt, Einhalten von Regeln, Soziales Verhalten) inkl. der 27 dazugehoerigen Formulierungen. Doppelte werden uebersprungen.">
+            Standard-Floskeln anlegen
+          </button>
+          {#if floskelnHinweis}<span class="hinweis">{floskelnHinweis}</span>{/if}
+        </p>
       </section>
     {/if}
 
