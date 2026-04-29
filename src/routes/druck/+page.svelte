@@ -285,12 +285,8 @@
   .schuljahr-klasse { font-size: 0.9rem; line-height: 1.4; text-align: right; }
 
   .matrix-wrap {
-    /* Expliziter Aussenrahmen um die ganze Tabelle, damit die rechte
-       Linie unabhaengig vom border-collapse-Verhalten der inneren
-       Cell-Borders sichtbar bleibt. */
-    border: 1px solid #444;
-    box-sizing: border-box;
     width: 100%;
+    box-sizing: border-box;
   }
   .matrix {
     width: 100%;
@@ -300,11 +296,21 @@
     box-sizing: border-box;
   }
   .matrix th, .matrix td {
-    border: 1px solid #444;
+    border: 1px solid #aaa;
     padding: 0.15rem 0.3rem;
     box-sizing: border-box;
     word-break: break-word;
   }
+  /* Aussenrand-Zellen bekommen einen 2px-Border auf der Aussen-Seite.
+     Internal cell borders (1px) rendern Antialiasing-bedingt als
+     ~2px breite Linie; mit explizit 2px solid bekommen die Aussen-
+     borders die gleiche optische Dicke. */
+  .matrix tr:first-child > * { border-top-width: 2px; }
+  .matrix tbody tr:last-child > * { border-bottom-width: 2px; }
+  .matrix tr > th:first-child,
+  .matrix tr > td:first-child { border-left-width: 2px; }
+  .matrix tr > th:last-child,
+  .matrix tr > td:last-child { border-right-width: 2px; }
   .matrix thead tr { height: 5.4rem; }
   .matrix .kat-spalte { width: 17%; border: 0; }
   .matrix .form-spalte { width: 35%; border: 0; }
@@ -420,9 +426,9 @@
     }
     .matrix .form-text { font-size: 8.5pt; line-height: 1.15; }
 
-    .bemerkung { margin-top: 0.4rem; padding: 0.25rem 0.4rem; }
+    .bemerkung { margin-top: 0.4rem; padding: 0.25rem 0.4rem; flex-grow: 1; display: flex; flex-direction: column; }
     .bem-titel { font-size: 8.5pt; margin-bottom: 0.15rem; }
-    .bem-text { font-size: 9pt; line-height: 1.3; min-height: 4rem; max-height: 5.5rem; overflow: hidden; }
+    .bem-text { font-size: 9pt; line-height: 1.3; flex-grow: 1; overflow: hidden; max-height: 9rem; }
 
     .bogen-fuss { font-size: 9pt; padding-top: 1rem; }
     .datum-zeile { gap: 0.8rem; }
