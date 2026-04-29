@@ -16,8 +16,9 @@
   let tab = $state<'faecher' | 'kategorien' | 'formulierungen'>('faecher');
   let faecher = $state<Fach[]>([]);
   let kategorien = $state<Kategorie[]>([]);
-  let aktiveKategorie = $state<Kategorie | null>(null);
-  let formulierungen = $state<Formulierung[]>([]);
+  let formulierungenProKategorie = $state<Record<number, Formulierung[]>>({});
+  let filterKategorieId = $state<number | null>(null);
+  let neueFormulierungKategorieId = $state<number | null>(null);
   let neuName = $state('');
   let neuText = $state('');
   let fehler = $state<string | null>(null);
@@ -44,10 +45,14 @@
   async function refreshKategorien() {
     if (!aktivesSchuljahr) return;
     kategorien = await katalog.kategorien(aktivesSchuljahr.id);
+    await refreshAlleFormulierungen();
   }
-  async function refreshFormulierungen() {
-    if (!aktiveKategorie) { formulierungen = []; return; }
-    formulierungen = await katalog.formulierungen(aktiveKategorie.id);
+  async function refreshAlleFormulierungen() {
+    const result: Record<number, Formulierung[]> = {};
+    for (const k of kategorien) {
+      result[k.id] = await katalog.formulierungen(k.id);
+    }
+    formulierungenProKategorie = result;
   }
 
   async function fachAnlegen() {
@@ -80,7 +85,6 @@
       const sum = await katalog.seedDefaultFloskeln(aktivesSchuljahr.id);
       floskelnHinweis = `${sum.neue_kategorien} neue Kategorien, ${sum.neue_formulierungen} neue Formulierungen angelegt (${sum.uebersprungene_kategorien} Kat. + ${sum.uebersprungene_formulierungen} Form. übersprungen).`;
       await refreshKategorien();
-      await refreshFormulierungen();
     } catch (e) { fehler = String(e); }
   }
   async function kategorieAnlegen() {
@@ -93,12 +97,15 @@
     } catch (e) { fehler = String(e); }
   }
   async function formulierungAnlegen() {
-    if (!aktiveKategorie || !neuText.trim()) return;
+    if (!neueFormulierungKategorieId || !neuText.trim()) {
+      fehler = 'Bitte Kategorie auswählen und Text eingeben.';
+      return;
+    }
     fehler = null;
     try {
-      await katalog.formulierungAnlegen(aktiveKategorie.id, neuText.trim());
+      await katalog.formulierungAnlegen(neueFormulierungKategorieId, neuText.trim());
       neuText = '';
-      await refreshFormulierungen();
+      await refreshAlleFormulierungen();
     } catch (e) { fehler = String(e); }
   }
 
@@ -112,7 +119,7 @@
   }
   async function formulierungToggle(f: Formulierung) {
     await katalog.formulierungAktiv(f.id, !f.aktiv);
-    await refreshFormulierungen();
+    await refreshAlleFormulierungen();
   }
 
   async function fachVerschieben(f: Fach, delta: number) {
@@ -134,18 +141,15 @@
     await refreshKategorien();
   }
   async function formulierungVerschieben(f: Formulierung, delta: number) {
-    const idx = formulierungen.findIndex(x => x.id === f.id);
+    const liste = formulierungenProKategorie[f.kategorie_id] ?? [];
+    const idx = liste.findIndex(x => x.id === f.id);
     const ziel = idx + delta;
-    if (ziel < 0 || ziel >= formulierungen.length) return;
-    const partner = formulierungen[ziel];
+    if (ziel < 0 || ziel >= liste.length) return;
+    const partner = liste[ziel];
     await katalog.formulierungReihenfolge(f.id, partner.reihenfolge);
     await katalog.formulierungReihenfolge(partner.id, f.reihenfolge);
-    await refreshFormulierungen();
+    await refreshAlleFormulierungen();
   }
-
-  $effect(() => {
-    refreshFormulierungen();
-  });
 </script>
 
 <main class="container">
@@ -221,19 +225,22 @@
 
     {#if tab === 'formulierungen'}
       <section>
-        <label>
-          Kategorie:
-          <select onchange={(e) => aktiveKategorie = kategorien.find(k => k.id === Number((e.target as HTMLSelectElement).value)) ?? null}>
-            <option value="">— wählen —</option>
-            {#each kategorien as k (k.id)}
-              <option value={k.id}>{k.name}</option>
-            {/each}
-          </select>
-        </label>
+        <div class="filter-row">
+          <label>
+            Anzeigen:
+            <select bind:value={filterKategorieId}>
+              <option value={null}>Alle Kategorien</option>
+              {#each kategorien as k (k.id)}
+                <option value={k.id}>{k.name}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
 
-        {#if aktiveKategorie}
+        {#each kategorien.filter(k => filterKategorieId === null || k.id === filterKategorieId) as k (k.id)}
+          <h3 class="kategorie-header">{k.name}</h3>
           <ul>
-            {#each formulierungen as f (f.id)}
+            {#each (formulierungenProKategorie[k.id] ?? []) as f (f.id)}
               <li class:inaktiv={!f.aktiv}>
                 <button onclick={() => formulierungVerschieben(f, -1)}>↑</button>
                 <button onclick={() => formulierungVerschieben(f, 1)}>↓</button>
@@ -243,11 +250,31 @@
                   aktiv
                 </label>
               </li>
+            {:else}
+              <li class="leer">— noch keine Formulierungen —</li>
             {/each}
           </ul>
-          <input placeholder="Neue Formulierung" bind:value={neuText} onkeydown={(e) => e.key === 'Enter' && formulierungAnlegen()} />
-          <button onclick={formulierungAnlegen}>+ Anlegen</button>
-        {/if}
+        {/each}
+
+        <div class="anlegen-row">
+          <h3>Neue Formulierung anlegen</h3>
+          <div class="anlegen-fields">
+            <select bind:value={neueFormulierungKategorieId}>
+              <option value={null}>— Kategorie wählen —</option>
+              {#each kategorien as k (k.id)}
+                <option value={k.id}>{k.name}</option>
+              {/each}
+            </select>
+            <input
+              placeholder="Text der Formulierung"
+              bind:value={neuText}
+              onkeydown={(e) => e.key === 'Enter' && formulierungAnlegen()}
+            />
+            <button onclick={formulierungAnlegen} disabled={!neueFormulierungKategorieId || !neuText.trim()}>
+              + Anlegen
+            </button>
+          </div>
+        </div>
       </section>
     {/if}
   {/if}
@@ -267,4 +294,13 @@
   input[type="text"], input:not([type]) { padding: 0.4rem; }
   .seed-row { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed #ccc; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
   .hinweis { color: #060; font-size: 0.9rem; }
+  .filter-row { margin-bottom: 1rem; }
+  .kategorie-header { margin: 1.2rem 0 0.4rem; color: var(--sg-petrol, #004058); font-size: 1.05rem; }
+  li.leer { color: #999; font-style: italic; padding: 0.4rem 0.8rem; border-bottom: 0; }
+  .anlegen-row { margin-top: 2rem; padding: 1rem; background: #f4f6f8; border-radius: 6px; border: 1px solid #d0d5da; }
+  .anlegen-row h3 { margin: 0 0 0.6rem; }
+  .anlegen-fields { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .anlegen-fields select { min-width: 200px; padding: 0.4rem; }
+  .anlegen-fields input { flex: 1; min-width: 250px; padding: 0.4rem; }
+  .anlegen-fields button:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

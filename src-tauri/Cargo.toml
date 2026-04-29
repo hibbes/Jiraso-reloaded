@@ -1,6 +1,6 @@
 [package]
 name = "jiraso-reloaded"
-version = "0.1.1"
+version = "0.1.2"
 description = "Verbalbeurteilungs-Software fuer das Schiller-Gymnasium Offenburg"
 authors = ["Schiller-Gymnasium Offenburg"]
 edition = "2021"
