@@ -71,14 +71,19 @@
     if (k && typeof localStorage !== 'undefined') localStorage.setItem(k, '1');
   }
 
-  function fertigKlick() {
+  function fertigKlick(e: MouseEvent) {
     if (!aktiveKlasse || !aktivesFach) return;
     if (!klasseFertig) {
       zeigeFertigToast('Es fehlen noch Bewertungen — die Klasse ist noch nicht komplett.');
       return;
     }
     if (!wurdeGefeiert()) {
-      celebration.trigger();
+      const target = e.currentTarget as HTMLElement | null;
+      const rect = target?.getBoundingClientRect();
+      const origin = rect
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : null;
+      celebration.trigger(origin);
       markGefeiert();
       zeigeFertigToast(`✨ Klasse ${aktiveKlasse.name} – ${aktivesFach.name}: fertig!`);
     } else {
@@ -90,6 +95,30 @@
     if (fertigToastTimer) clearTimeout(fertigToastTimer);
     fertigToast = msg;
     fertigToastTimer = setTimeout(() => { fertigToast = null; }, 3000);
+  }
+
+  let wuerfelLaufend = $state(false);
+  async function klasseWuerfeln() {
+    if (!aktiveKlasse) return;
+    if (!confirm(`Test-Bewertungen für Klasse ${aktiveKlasse.name} wuerfeln?\n\nDas ueberschreibt bestehende Bewertungen UND Bemerkungen aller Schueler:innen dieser Klasse fuer ALLE Faecher.`)) return;
+    wuerfelLaufend = true;
+    fehler = null;
+    try {
+      const [cells, bems] = await bewertungApi.wuerfeln(aktiveKlasse.id);
+      zeigeFertigToast(`🎲 ${cells} Bewertungen + ${bems} Bemerkungen gewuerfelt.`);
+      // localStorage 'gefeiert'-Marker fuer alle Faecher dieser Klasse loeschen,
+      // damit der Sternenregen-Knopf wieder feiert
+      if (typeof localStorage !== 'undefined') {
+        for (const f of faecher) {
+          localStorage.removeItem(`klasse-fertig:${aktiveKlasse.id}:${f.id}`);
+        }
+      }
+      await ladeKlasseUndFach();
+    } catch (e) {
+      fehler = String(e);
+    } finally {
+      wuerfelLaufend = false;
+    }
   }
 
   onMount(async () => {
@@ -292,6 +321,16 @@
       <span class="fertig-hinweis">
         Bewertungen werden automatisch gespeichert, sobald du eine Auswahl triffst.
       </span>
+      {#if session.rolle === 'administrator'}
+        <button
+          class="wuerfel-button"
+          onclick={klasseWuerfeln}
+          disabled={!aktiveKlasse || wuerfelLaufend}
+          title="Admin-Test-Helfer: würfelt zufällige Bewertungen für alle Schüler:innen × alle Fächer × alle Kategorien"
+        >
+          {wuerfelLaufend ? '🎲 würfle …' : '🎲 Klasse würfeln (Admin-Test)'}
+        </button>
+      {/if}
       {#if fertigToast}
         <span class="fertig-toast">{fertigToast}</span>
       {/if}
@@ -433,4 +472,16 @@
     border-radius: 4px;
     border: 1px solid #c0e0a0;
   }
+  .wuerfel-button {
+    margin-left: auto;
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    border: 1px dashed #b0a060;
+    background: #fff8de;
+    color: #6b5a10;
+    cursor: pointer;
+    font-size: 0.88rem;
+  }
+  .wuerfel-button:hover { background: #fff2b8; }
+  .wuerfel-button:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

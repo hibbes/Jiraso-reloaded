@@ -326,6 +326,17 @@ pub fn bewertung_set(update: BewertungUpdate, state: tauri::State<AppState>) -> 
 }
 
 #[tauri::command]
+pub fn bewertung_wuerfeln(klasse_id: i64, state: tauri::State<AppState>) -> AppResult<(usize, usize)> {
+    require_admin(&state)?;
+    let mut conn = open_db(&state)?;
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    bewertung::wuerfle_klasse(&mut conn, klasse_id, 0.1, seed)
+}
+
+#[tauri::command]
 pub fn bemerkung_get(schueler_id: i64, state: tauri::State<AppState>) -> AppResult<Option<(String, String)>> {
     require_klassenlehrer_oder_admin(&state)?;
     let conn = open_db(&state)?;

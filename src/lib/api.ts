@@ -203,7 +203,9 @@ export const bewertung = {
   matrix: (klasseId: number, fachId: number) =>
     invoke<MatrixZelle[]>('bewertung_matrix', { klasseId, fachId }),
   set: (update: BewertungUpdate) =>
-    invoke<SetResult>('bewertung_set', { update })
+    invoke<SetResult>('bewertung_set', { update }),
+  wuerfeln: (klasseId: number) =>
+    invoke<[number, number]>('bewertung_wuerfeln', { klasseId })
 };
 
 // --- Bemerkung ---

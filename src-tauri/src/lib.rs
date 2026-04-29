@@ -107,6 +107,7 @@ pub fn run() {
             commands::katalog_formulierung_reihenfolge,
             commands::bewertung_matrix,
             commands::bewertung_set,
+            commands::bewertung_wuerfeln,
             commands::bemerkung_get,
             commands::bemerkung_set,
             commands::klassenraum_klassen,

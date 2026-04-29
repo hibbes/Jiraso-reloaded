@@ -54,6 +54,132 @@ pub fn matrix(conn: &Connection, klasse_id: i64, fach_id: i64) -> AppResult<Vec<
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Test-Helfer: Würfelt für eine ganze Klasse zufällige Bewertungen +
+/// optional Bemerkungen. Admin-only (Tauri-Command-Wrapper prüft das).
+/// `null_anteil` = Anteil der Zellen, die als „keine Angabe" eingetragen
+/// werden (0.0 = keine, 1.0 = nur NULL). Üblich: 0.1.
+/// Liefert (cells_geschrieben, bemerkungen_geschrieben).
+pub fn wuerfle_klasse(
+    conn: &mut Connection,
+    klasse_id: i64,
+    null_anteil: f64,
+    seed: u64,
+) -> AppResult<(usize, usize)> {
+    let schuljahr_id: i64 = conn.query_row(
+        "SELECT schuljahr_id FROM klasse WHERE id = ?1",
+        params![klasse_id],
+        |r| r.get(0),
+    )?;
+
+    let schueler: Vec<i64> = {
+        let mut stmt = conn.prepare("SELECT id FROM schueler WHERE klasse_id = ?1")?;
+        let rows: Vec<i64> = stmt
+            .query_map(params![klasse_id], |r| r.get::<_, i64>(0))?
+            .collect::<Result<_, _>>()?;
+        rows
+    };
+    let faecher: Vec<i64> = {
+        let mut stmt = conn.prepare(
+            "SELECT id FROM fach WHERE schuljahr_id = ?1 AND aktiv = 1 ORDER BY reihenfolge",
+        )?;
+        let rows: Vec<i64> = stmt
+            .query_map(params![schuljahr_id], |r| r.get::<_, i64>(0))?
+            .collect::<Result<_, _>>()?;
+        rows
+    };
+    let kategorien: Vec<i64> = {
+        let mut stmt = conn.prepare(
+            "SELECT id FROM kategorie WHERE schuljahr_id = ?1 AND aktiv = 1 ORDER BY reihenfolge",
+        )?;
+        let rows: Vec<i64> = stmt
+            .query_map(params![schuljahr_id], |r| r.get::<_, i64>(0))?
+            .collect::<Result<_, _>>()?;
+        rows
+    };
+
+    // Pro Kategorie aktive Formulierungs-IDs
+    let mut form_pool: std::collections::HashMap<i64, Vec<i64>> = std::collections::HashMap::new();
+    for k in &kategorien {
+        let ids: Vec<i64> = {
+            let mut stmt = conn.prepare(
+                "SELECT id FROM formulierung WHERE kategorie_id = ?1 AND aktiv = 1",
+            )?;
+            let rows: Vec<i64> = stmt
+                .query_map(params![k], |r| r.get::<_, i64>(0))?
+                .collect::<Result<_, _>>()?;
+            rows
+        };
+        form_pool.insert(*k, ids);
+    }
+
+    let beispiele = beispiel_bemerkungen();
+
+    let tx = conn.transaction()?;
+    let mut state = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut next = || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state
+    };
+
+    let mut cells = 0usize;
+    let mut bems = 0usize;
+
+    for s in &schueler {
+        for f in &faecher {
+            for k in &kategorien {
+                let pool = form_pool.get(k).cloned().unwrap_or_default();
+                let pick: Option<i64> = if pool.is_empty()
+                    || (next() as f64 / u64::MAX as f64) < null_anteil
+                {
+                    None
+                } else {
+                    Some(pool[(next() as usize) % pool.len()])
+                };
+                tx.execute(
+                    "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id, geaendert_am)
+                     VALUES (?1, ?2, ?3, ?4, datetime('now'))
+                     ON CONFLICT(schueler_id, fach_id, kategorie_id) DO UPDATE SET
+                        formulierung_id = excluded.formulierung_id,
+                        geaendert_am    = excluded.geaendert_am",
+                    params![s, f, k, pick],
+                )?;
+                cells += 1;
+            }
+        }
+        // 60% Chance auf eine Bemerkung
+        if (next() as f64 / u64::MAX as f64) < 0.6 && !beispiele.is_empty() {
+            let text = beispiele[(next() as usize) % beispiele.len()];
+            tx.execute(
+                "INSERT INTO bemerkung(schueler_id, text, geaendert_am)
+                 VALUES (?1, ?2, datetime('now'))
+                 ON CONFLICT(schueler_id) DO UPDATE SET
+                    text = excluded.text,
+                    geaendert_am = excluded.geaendert_am",
+                params![s, text],
+            )?;
+            bems += 1;
+        }
+    }
+
+    tx.commit()?;
+    Ok((cells, bems))
+}
+
+fn beispiel_bemerkungen() -> Vec<&'static str> {
+    vec![
+        "Eine engagierte Schülerin, die sich gut in die Klassengemeinschaft einbringt und im Unterricht stets aufmerksam mitarbeitet.",
+        "Ein freundlicher Schüler, der zuverlässig und gewissenhaft arbeitet. Im Bereich Konzentration sind weitere Fortschritte möglich.",
+        "Hat sich im Lauf des Schuljahres deutlich entwickelt und nimmt nun aktiv am Unterrichtsgeschehen teil.",
+        "Bringt sich mit guten Beiträgen und originellen Ideen ein und sorgt für ein positives Lernklima.",
+        "Sollte sich darauf konzentrieren, Hausaufgaben regelmäßig und vollständig zu erledigen, um den eigenen Lernerfolg zu sichern.",
+        "Verfügt über sehr gute Auffassungsgabe und arbeitet selbstständig auf hohem Niveau.",
+        "Zeigt im sozialen Miteinander Verlässlichkeit und ist für Mitschüler:innen ein:e angenehme:r Lernpartner:in.",
+        "Mit etwas mehr Selbstvertrauen wird auch die mündliche Beteiligung sich weiter steigern lassen.",
+    ]
+}
+
 /// Setzt eine Bewertungs-Zelle. Verhalten:
 /// - `formulierung_id = None` → explizite NULL-Zeile (kein DELETE), damit "Klasse fertig" detektierbar ist.
 /// - `vorheriger_stand = None` und Server hat keine Zeile → INSERT.
@@ -266,6 +392,44 @@ mod tests {
         assert_eq!(m.len(), 1);
         assert_eq!(m[0].formulierung_id, None);
         assert!(!m[0].geaendert_am.is_empty());
+    }
+
+    #[test]
+    fn wuerfle_klasse_befuellt_alle_zellen() {
+        let (_d, mut conn) = seed();
+        // Hier sind 1 Klasse, 2 Schüler, 1 Fach, 2 Kategorien, 2 Formulierungen
+        let (cells, bems) = wuerfle_klasse(&mut conn, 1, 0.0, 42).unwrap();
+        assert_eq!(cells, 4, "2 Schüler × 1 Fach × 2 Kategorien");
+        let _ = bems; // 0..2 möglich (60% Bemerkungs-Chance)
+        let m = matrix(&conn, 1, 1).unwrap();
+        assert_eq!(m.len(), 4);
+        // alle Zellen mit gültiger Formulierung (null_anteil=0)
+        assert!(m.iter().all(|z| z.formulierung_id.is_some()));
+    }
+
+    #[test]
+    fn wuerfle_klasse_setzt_keine_angabe_wenn_null_anteil_1() {
+        let (_d, mut conn) = seed();
+        let (cells, _) = wuerfle_klasse(&mut conn, 1, 1.0, 42).unwrap();
+        assert_eq!(cells, 4);
+        let m = matrix(&conn, 1, 1).unwrap();
+        assert!(m.iter().all(|z| z.formulierung_id.is_none()));
+    }
+
+    #[test]
+    fn wuerfle_klasse_ist_idempotent_pro_seed() {
+        let (_d, mut conn1) = seed();
+        let (_d2, mut conn2) = seed();
+        wuerfle_klasse(&mut conn1, 1, 0.0, 1234).unwrap();
+        wuerfle_klasse(&mut conn2, 1, 0.0, 1234).unwrap();
+        let m1 = matrix(&conn1, 1, 1).unwrap();
+        let m2 = matrix(&conn2, 1, 1).unwrap();
+        // Beide Matrizen identisch (gleicher Seed)
+        let mut m1_sorted: Vec<_> = m1.iter().map(|z| (z.schueler_id, z.kategorie_id, z.formulierung_id)).collect();
+        let mut m2_sorted: Vec<_> = m2.iter().map(|z| (z.schueler_id, z.kategorie_id, z.formulierung_id)).collect();
+        m1_sorted.sort();
+        m2_sorted.sort();
+        assert_eq!(m1_sorted, m2_sorted);
     }
 
     #[test]
