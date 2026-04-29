@@ -1,7 +1,19 @@
 # Jiraso-reloaded
 
+> **Status: Re-Implementation / "Reloaded-Fork" des ursprünglichen Jiraso.**
+> Dies ist *kein* Fork der 2021er-Codebase im git-Sinne (anderer Tech-Stack),
+> sondern eine konzeptionelle Neuauflage, die Modell und Workflow von Peer
+> Schliekers Original übernimmt.
+
 Modernisierte Verbalbeurteilungs-Software fuer die Klassen 5 und 6 am
-Schiller-Gymnasium Offenburg. Nachfolger von Jiraso (Peer Schlieker, 2021).
+Schiller-Gymnasium Offenburg.
+
+**Initiator und Ideengeber:** Peer Schlieker hat 2021 das ursprüngliche Jiraso
+entwickelt und damit das Konzept der modulbasierten Verbalbeurteilung am
+Schiller-Gymnasium etabliert. *Jiraso-reloaded* übernimmt sein didaktisches
+Modell und seinen Workflow-Ansatz und baut beides auf einem neuen Tech-Stack
+neu auf, damit das Werkzeug langfristig wartbar bleibt. Dank an Peer für die
+Idee, das Pionierwerk und die Bereitschaft, das Konzept weitergeben zu lassen.
 
 **Tech-Stack:** Tauri 2 (Rust) + SvelteKit 2 (Svelte 5, TypeScript) + SQLite (bundled).
 
