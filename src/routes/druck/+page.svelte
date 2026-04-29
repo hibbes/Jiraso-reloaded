@@ -171,6 +171,7 @@
         </div>
       </header>
 
+      <div class="matrix-wrap">
       <table class="matrix">
         <thead>
           <tr>
@@ -200,6 +201,7 @@
           {/each}
         </tbody>
       </table>
+      </div>
 
       <section class="bemerkung">
         <div class="bem-titel">zusätzliche Bemerkungen:</div>
@@ -282,13 +284,20 @@
   .titel-name { font-size: 1.05rem; font-weight: 500; border-bottom: 1px solid #000; padding-bottom: 0.15rem; min-width: 12rem; display: inline-block; }
   .schuljahr-klasse { font-size: 0.9rem; line-height: 1.4; text-align: right; }
 
+  .matrix-wrap {
+    /* Expliziter Aussenrahmen um die ganze Tabelle, damit die rechte
+       Linie unabhaengig vom border-collapse-Verhalten der inneren
+       Cell-Borders sichtbar bleibt. */
+    border: 1px solid #444;
+    box-sizing: border-box;
+    width: 100%;
+  }
   .matrix {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.78rem;
     table-layout: fixed;
     box-sizing: border-box;
-    border: 1px solid #444;
   }
   .matrix th, .matrix td {
     border: 1px solid #444;
@@ -383,10 +392,14 @@
       padding: 0;
       margin: 0;
       border-radius: 0;
-      /* Verfuegbare Hoehe = 29.7cm - 2 * 1.3cm = 27.1cm — Reserve einplanen */
-      max-height: 27cm;
+      /* Volle Druckseiten-Hoehe nutzen, damit der Footer per
+         margin-top:auto ans untere Ende rutscht. */
+      display: flex;
+      flex-direction: column;
+      height: 27cm;
       overflow: hidden;
     }
+    .bogen-fuss { margin-top: auto !important; }
     .bogen:last-child { page-break-after: auto; }
     .bogen-kopf { margin-bottom: 0.4rem; }
     .schule .logo { height: 50px; }
@@ -411,9 +424,10 @@
     .bem-titel { font-size: 8.5pt; margin-bottom: 0.15rem; }
     .bem-text { font-size: 9pt; line-height: 1.3; min-height: 4rem; max-height: 5.5rem; overflow: hidden; }
 
-    .bogen-fuss { margin-top: 1rem; font-size: 9pt; }
+    .bogen-fuss { font-size: 9pt; padding-top: 1rem; }
     .datum-zeile { gap: 0.8rem; }
-    .unterschrift-linie { height: 1.5rem; }
+    .unterschrift-linie { height: 1.7rem; }
     .rolle-zeile { font-size: 8pt; margin-top: 0.25rem; gap: 0.8rem; }
+    .bem-text { white-space: pre-wrap; }
   }
 </style>
