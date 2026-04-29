@@ -49,6 +49,173 @@
   let fertigToast = $state<string | null>(null);
   let fertigToastTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Panel-Modus: Schueler-Liste links + vertikaler Kategorien-Karten-Stack rechts.
+  // Ziel: pro Schueler:in 7 Tastendruecke fuer komplette Bewertung.
+  type ViewMode = 'panel' | 'matrix';
+  function loadViewMode(): ViewMode {
+    if (typeof localStorage === 'undefined') return 'panel';
+    return (localStorage.getItem('bewertung-view') === 'matrix') ? 'matrix' : 'panel';
+  }
+  let viewMode = $state<ViewMode>(loadViewMode());
+  let aktiveKategorieIndex = $state(0);
+  let autoAdvance = $state(true);
+  let cheatSheetOffen = $state(false);
+  let bemerkungRef = $state<HTMLTextAreaElement | null>(null);
+  let zuletztGespeichert = $state<{ kategorieId: number; formulierungId: number | null } | null>(null);
+
+  function setViewMode(m: ViewMode) {
+    viewMode = m;
+    if (typeof localStorage !== 'undefined') localStorage.setItem('bewertung-view', m);
+  }
+
+  function toggleViewMode() { setViewMode(viewMode === 'panel' ? 'matrix' : 'panel'); }
+
+  // Lineare Farbskala positiv -> kritisch, abhaengig von Anzahl der Pills.
+  function pillFarbe(idx: number, total: number): string {
+    const stufen3 = ['#34a853', '#f4b400', '#d93025'];
+    const stufen4 = ['#34a853', '#9bcb45', '#f4b400', '#d93025'];
+    const stufen5 = ['#34a853', '#9bcb45', '#f4b400', '#f08018', '#d93025'];
+    if (total <= 3) return stufen3[Math.min(idx, 2)];
+    if (total === 4) return stufen4[idx];
+    return stufen5[Math.min(idx, 4)];
+  }
+
+  function progressBullet(s: SchuelerMini): '○' | '◐' | '●' {
+    let n = 0;
+    for (const k of kategorien) {
+      const c = cells[key(s.id, k.id)];
+      if (c && c.geaendert_am !== null) n++;
+    }
+    if (n === 0) return '○';
+    if (n >= kategorien.length) return '●';
+    return '◐';
+  }
+
+  function schuelerStatusKlasse(s: SchuelerMini): string {
+    const b = progressBullet(s);
+    return b === '●' ? 'fertig' : b === '◐' ? 'angefangen' : '';
+  }
+
+  async function naechsterSchueler() {
+    if (!fokusSchueler) {
+      if (schueler.length > 0) await fokusiere(schueler[0]);
+      aktiveKategorieIndex = 0;
+      return;
+    }
+    const i = schueler.findIndex(x => x.id === fokusSchueler!.id);
+    if (i < schueler.length - 1) {
+      await fokusiere(schueler[i + 1]);
+      aktiveKategorieIndex = 0;
+    }
+  }
+  async function vorherigerSchueler() {
+    if (!fokusSchueler) return;
+    const i = schueler.findIndex(x => x.id === fokusSchueler!.id);
+    if (i > 0) {
+      await fokusiere(schueler[i - 1]);
+      aktiveKategorieIndex = 0;
+    }
+  }
+
+  async function selectByIndex(formIdx: number) {
+    if (!fokusSchueler) return;
+    const k = kategorien[aktiveKategorieIndex];
+    if (!k) return;
+    const forms = formulierungenByKat[k.id] ?? [];
+    if (formIdx >= forms.length) return;
+    const fid = forms[formIdx].id;
+    zuletztGespeichert = { kategorieId: k.id, formulierungId: fid };
+    await setCell(fokusSchueler, k, fid);
+    if (autoAdvance) await advanceAfterSelect();
+  }
+
+  async function selectKeineAngabe() {
+    if (!fokusSchueler) return;
+    const k = kategorien[aktiveKategorieIndex];
+    if (!k) return;
+    zuletztGespeichert = { kategorieId: k.id, formulierungId: null };
+    await setCell(fokusSchueler, k, null);
+    if (autoAdvance) await advanceAfterSelect();
+  }
+
+  async function advanceAfterSelect() {
+    if (aktiveKategorieIndex < kategorien.length - 1) {
+      aktiveKategorieIndex++;
+    } else {
+      // Letzte Kategorie erledigt
+      if (session.rolle === 'klassenlehrer' || session.rolle === 'administrator') {
+        // Klassenlehrer-Mode: Cursor in die Bemerkung
+        if (bemerkungRef) {
+          bemerkungRef.focus();
+        }
+        // Kategorie-Index bleibt auf der letzten, falls Lehrer:in zurueckspringen will
+      } else {
+        // Fachlehrer-Mode: naechste:r Schueler:in
+        await naechsterSchueler();
+      }
+    }
+  }
+
+  function handleKey(e: KeyboardEvent) {
+    if (cheatSheetOffen) {
+      if (e.key === 'Escape' || e.key === '?') {
+        cheatSheetOffen = false;
+        e.preventDefault();
+      }
+      return;
+    }
+    const tag = (e.target as HTMLElement).tagName;
+    const inText = tag === 'TEXTAREA' || tag === 'INPUT';
+    if (inText) {
+      if (e.key === 'Escape') {
+        (e.target as HTMLElement).blur();
+        e.preventDefault();
+      }
+      return;
+    }
+    if (tag === 'SELECT') return;
+
+    if (e.key === '?') { cheatSheetOffen = true; e.preventDefault(); return; }
+    if (e.key === 'm' || e.key === 'M') { toggleViewMode(); e.preventDefault(); return; }
+
+    if (viewMode !== 'panel') return;
+    if (!aktiveKlasse || !aktivesFach) return;
+
+    if (e.key === 'a' || e.key === 'A') {
+      autoAdvance = !autoAdvance;
+      zeigeFertigToast(autoAdvance ? '⏭ Auto-Advance an' : '⏸ Auto-Advance aus');
+      e.preventDefault(); return;
+    }
+    if (e.key === 'n' || e.key === 'N' || e.key === 'ArrowDown') {
+      naechsterSchueler(); e.preventDefault(); return;
+    }
+    if (e.key === 'p' || e.key === 'P' || e.key === 'ArrowUp') {
+      vorherigerSchueler(); e.preventDefault(); return;
+    }
+    if (e.key === 'ArrowRight') {
+      if (aktiveKategorieIndex < kategorien.length - 1) aktiveKategorieIndex++;
+      e.preventDefault(); return;
+    }
+    if (e.key === 'ArrowLeft') {
+      if (aktiveKategorieIndex > 0) aktiveKategorieIndex--;
+      e.preventDefault(); return;
+    }
+    if (e.key === 'b' || e.key === 'B') {
+      if ((session.rolle === 'klassenlehrer' || session.rolle === 'administrator') && bemerkungRef) {
+        bemerkungRef.focus();
+        e.preventDefault();
+      }
+      return;
+    }
+    if (e.key === '0' || e.key === '-') {
+      selectKeineAngabe(); e.preventDefault(); return;
+    }
+    if (/^[1-9]$/.test(e.key)) {
+      selectByIndex(parseInt(e.key, 10) - 1);
+      e.preventDefault();
+    }
+  }
+
   const klasseFertig = $derived(
     aktiveKlasse !== null && aktivesFach !== null && schueler.length > 0
       && schueler.every(s => kategorien.every(k => {
@@ -141,10 +308,14 @@
       formulierungenByKat[k.id] = (await katalog.formulierungen(k.id)).filter(f => f.aktiv);
     }
     pollHandle = setInterval(refreshMatrixSilent, 30_000);
+    window.addEventListener('keydown', handleKey);
   });
 
   $effect(() => {
-    return () => { if (pollHandle) clearInterval(pollHandle); };
+    return () => {
+      if (pollHandle) clearInterval(pollHandle);
+      window.removeEventListener('keydown', handleKey);
+    };
   });
 
   function key(s: number, k: number) { return `${s}:${k}`; }
@@ -237,6 +408,7 @@
 
   async function fokusiere(s: SchuelerMini) {
     fokusSchueler = s;
+    aktiveKategorieIndex = 0;
     bemerkungStatus = 'idle';
     bemerkungKonfliktTs = null;
     if (session.rolle !== 'klassenlehrer' && session.rolle !== 'administrator') return;
@@ -341,8 +513,146 @@
       {#if fertigToast}
         <span class="fertig-toast">{fertigToast}</span>
       {/if}
+      <div class="modus-row">
+        <div class="modus-group" role="group" aria-label="Ansicht">
+          <button
+            class="modus-btn"
+            class:aktiv={viewMode === 'panel'}
+            onclick={() => setViewMode('panel')}
+            title="Schueler-fuer-Schueler-Eingabe (Tastatur 1-5)"
+          >Panel</button>
+          <button
+            class="modus-btn"
+            class:aktiv={viewMode === 'matrix'}
+            onclick={() => setViewMode('matrix')}
+            title="Klassische Matrix-Uebersicht (m)"
+          >Matrix</button>
+        </div>
+        <button
+          class="hilfe-btn"
+          onclick={() => cheatSheetOffen = true}
+          title="Tastatur-Cheat-Sheet einblenden (?)"
+        >? Tastatur</button>
+      </div>
     </div>
 
+    {#if viewMode === 'panel'}
+      <div class="panel-grid">
+        <aside class="schueler-liste">
+          <h3>Schueler:innen</h3>
+          <ul>
+            {#each schueler as s (s.id)}
+              <li
+                class:aktiv={fokusSchueler?.id === s.id}
+                class={schuelerStatusKlasse(s)}
+              >
+                <button onclick={() => fokusiere(s)}>
+                  <span class="bullet">{progressBullet(s)}</span>
+                  <span class="name">{s.sortname}</span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+          <p class="liste-hint">↑↓ oder n/p · m: Matrix · ?: Hilfe</p>
+        </aside>
+
+        <section class="bewertungs-panel">
+          {#if fokusSchueler}
+            <div class="hud">
+              <strong>{fokusSchueler.sortname}</strong>
+              <span>· Kategorie {aktiveKategorieIndex + 1}/{kategorien.length}</span>
+              <span>· {aktivesFach?.name}</span>
+              {#if !autoAdvance}<span class="auto-aus">Auto-Advance aus</span>{/if}
+            </div>
+
+            {#each kategorien as k, ki (k.id)}
+              {@const c = cells[key(fokusSchueler.id, k.id)] ?? { formulierung_id: null, geaendert_am: null, status: 'idle' }}
+              {@const forms = formulierungenByKat[k.id] ?? []}
+              {@const aktiv = ki === aktiveKategorieIndex}
+              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+              <article
+                class="kat-karte"
+                class:aktiv
+                class:fertig={c.geaendert_am !== null}
+                onclick={() => aktiveKategorieIndex = ki}
+              >
+                <header>
+                  <span class="kat-num">{ki + 1}</span>
+                  <h4>{k.name}</h4>
+                  {#if c.geaendert_am !== null}<span class="kat-check">✓</span>{/if}
+                  <span class="kat-status">{statusIcon(c.status)}</span>
+                </header>
+                <div class="pills">
+                  {#each forms as f, fi (f.id)}
+                    <button
+                      class="pill"
+                      class:gewaehlt={c.formulierung_id === f.id}
+                      style:--pill-color={pillFarbe(fi, forms.length)}
+                      onclick={(ev) => { ev.stopPropagation(); aktiveKategorieIndex = ki; selectByIndex(fi); }}
+                      title="Taste {fi + 1}"
+                    >
+                      <span class="pill-num">{fi + 1}</span>
+                      <span class="pill-text">{f.text}</span>
+                    </button>
+                  {/each}
+                  <button
+                    class="pill keine-angabe"
+                    class:gewaehlt={c.formulierung_id === null && c.geaendert_am !== null}
+                    onclick={(ev) => { ev.stopPropagation(); aktiveKategorieIndex = ki; selectKeineAngabe(); }}
+                    title="Taste 0 oder -"
+                  >
+                    <span class="pill-num">0</span>
+                    <span class="pill-text">— keine Angabe —</span>
+                  </button>
+                </div>
+                {#if c.status === 'konflikt'}
+                  <div class="konflikt-banner">
+                    Andere Sitzung hat
+                    {#if c.konfliktServerFid != null}
+                      „{forms.find(x => x.id === c.konfliktServerFid)?.text ?? '?'}"
+                    {:else}
+                      „— keine Angabe —"
+                    {/if}
+                    gewaehlt.
+                    <button onclick={(ev) => { ev.stopPropagation(); konfliktMeineUebernehmen(fokusSchueler!, k); }}>Meine</button>
+                    <button onclick={(ev) => { ev.stopPropagation(); konfliktIhreBehalten(fokusSchueler!, k); }}>Ihre</button>
+                  </div>
+                {/if}
+              </article>
+            {/each}
+
+            {#if session.rolle === 'klassenlehrer' || session.rolle === 'administrator'}
+              <article class="bemerkungs-karte">
+                <header>
+                  <h4>Bemerkung <span class="kat-status">{statusIcon(bemerkungStatus)}</span></h4>
+                  <span class="kat-hint">Taste b zum Springen, Esc zum Verlassen</span>
+                </header>
+                <textarea
+                  bind:this={bemerkungRef}
+                  rows="6"
+                  bind:value={bemerkungText}
+                  oninput={bemerkungChange}
+                  onblur={saveBemerkung}
+                ></textarea>
+                <p class="counter" class:warn={bemerkungText.length > 700}>{bemerkungText.length}/700 Zeichen</p>
+                {#if bemerkungStatus === 'konflikt'}
+                  <div class="konflikt-banner">
+                    Andere Sitzung hat die Bemerkung geaendert.
+                    <button onclick={bemKonfliktMeine}>Meine</button>
+                    <button onclick={bemKonfliktIhre}>Ihre</button>
+                  </div>
+                {/if}
+              </article>
+            {/if}
+          {:else}
+            <div class="leer-hint">
+              <p>Klick eine Schueler:in links — oder druecke <kbd>↓</kbd> / <kbd>n</kbd>.</p>
+              <p>Cheat-Sheet mit <kbd>?</kbd>.</p>
+            </div>
+          {/if}
+        </section>
+      </div>
+    {:else}
     <div class="grid">
       <div class="matrix">
         <table>
@@ -420,6 +730,56 @@
         {/if}
       </aside>
     </div>
+    {/if}
+  {/if}
+
+  {#if cheatSheetOffen}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions a11y_no_static_element_interactions -->
+    <div class="cheat-overlay" onclick={() => cheatSheetOffen = false}>
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions a11y_no_static_element_interactions -->
+      <div class="cheat-modal" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
+        <header>
+          <h2>Tastatur-Cheat-Sheet</h2>
+          <button class="cheat-close" onclick={() => cheatSheetOffen = false} title="Schliessen (Esc / ?)">✕</button>
+        </header>
+        <div class="cheat-grid">
+          <section>
+            <h3>Auswahl</h3>
+            <dl>
+              <dt><kbd>1</kbd> – <kbd>5</kbd></dt><dd>Formulierung in aktiver Kategorie</dd>
+              <dt><kbd>0</kbd> oder <kbd>-</kbd></dt><dd>keine Angabe</dd>
+            </dl>
+          </section>
+          <section>
+            <h3>Navigation</h3>
+            <dl>
+              <dt><kbd>↑</kbd> / <kbd>↓</kbd></dt><dd>Schueler:in vor/zurueck</dd>
+              <dt><kbd>n</kbd> / <kbd>p</kbd></dt><dd>dito (alternative Tasten)</dd>
+              <dt><kbd>←</kbd> / <kbd>→</kbd></dt><dd>Kategorie ohne Auswahl wechseln</dd>
+            </dl>
+          </section>
+          <section>
+            <h3>Modus</h3>
+            <dl>
+              <dt><kbd>m</kbd></dt><dd>Panel ⇄ Matrix</dd>
+              <dt><kbd>a</kbd></dt><dd>Auto-Advance an/aus</dd>
+              <dt><kbd>?</kbd></dt><dd>diese Hilfe</dd>
+              <dt><kbd>Esc</kbd></dt><dd>Hilfe schliessen / Bemerkung verlassen</dd>
+            </dl>
+          </section>
+          <section>
+            <h3>Bemerkung (Klassenlehrer:in)</h3>
+            <dl>
+              <dt><kbd>b</kbd></dt><dd>Sprung ins Bemerkungsfeld</dd>
+              <dt><kbd>Esc</kbd></dt><dd>Bemerkung verlassen</dd>
+            </dl>
+          </section>
+        </div>
+        <footer>
+          <p>Auto-Advance: nach jeder Auswahl springt der Fokus zur naechsten Kategorie. Nach der letzten Kategorie springt er bei Klassenlehrer:innen in die Bemerkung, sonst zur naechsten Schueler:in.</p>
+        </footer>
+      </div>
+    </div>
   {/if}
 </main>
 
@@ -491,4 +851,191 @@
   }
   .wuerfel-button:hover { background: #fff2b8; }
   .wuerfel-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Modus-Toggle */
+  .modus-row { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
+  .modus-group { display: inline-flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
+  .modus-btn {
+    padding: 0.35rem 0.9rem;
+    border: 0;
+    background: #fafafa;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: #555;
+  }
+  .modus-btn.aktiv { background: var(--sg-petrol, #004058); color: white; }
+  .modus-btn:not(.aktiv):hover { background: #eee; }
+  .hilfe-btn {
+    padding: 0.35rem 0.9rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #fafafa;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: #555;
+  }
+  .hilfe-btn:hover { background: #eee; }
+
+  /* Panel-Modus Layout */
+  .panel-grid { display: grid; grid-template-columns: 16rem 1fr; gap: 1.2rem; align-items: start; }
+
+  .schueler-liste {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+    padding: 0.5rem;
+    position: sticky;
+    top: 0.5rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+  }
+  .schueler-liste h3 { margin: 0.2rem 0 0.5rem; font-size: 0.88rem; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+  .schueler-liste ul { list-style: none; padding: 0; margin: 0; }
+  .schueler-liste li { margin: 0; }
+  .schueler-liste li button {
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    padding: 0.35rem 0.5rem;
+    font: inherit;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .schueler-liste li button:hover { background: #ececec; }
+  .schueler-liste li.aktiv button { background: #fff3c1; font-weight: 600; box-shadow: inset 3px 0 0 var(--sg-gold, #c9a747); }
+  .schueler-liste li.fertig .bullet { color: #060; }
+  .schueler-liste li.angefangen .bullet { color: #b07020; }
+  .schueler-liste .bullet { font-size: 1.1rem; line-height: 1; width: 1.2rem; text-align: center; color: #999; }
+  .schueler-liste .name { flex: 1; }
+  .liste-hint { font-size: 0.72rem; color: #888; margin: 0.6rem 0.2rem 0; }
+
+  .bewertungs-panel { display: flex; flex-direction: column; gap: 0.7rem; }
+  .hud {
+    display: flex; gap: 0.5rem; align-items: baseline;
+    background: #f7f7fa; border: 1px solid #e0e0e8; padding: 0.4rem 0.7rem;
+    border-radius: 6px; font-size: 0.92rem;
+  }
+  .hud .auto-aus { margin-left: auto; color: #b07020; font-size: 0.8rem; font-style: italic; }
+
+  .leer-hint {
+    border: 1px dashed #ccc; border-radius: 8px; padding: 2rem; text-align: center; color: #777;
+  }
+  .leer-hint kbd {
+    display: inline-block; padding: 0.1rem 0.4rem; border: 1px solid #aaa;
+    border-bottom-width: 2px; border-radius: 3px; background: #f5f5f5;
+    font-family: ui-monospace, monospace; font-size: 0.85em;
+  }
+
+  .kat-karte {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    background: white;
+    transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+    cursor: pointer;
+  }
+  .kat-karte:not(.aktiv) { opacity: 0.78; }
+  .kat-karte.aktiv {
+    border-color: var(--sg-petrol, #004058);
+    box-shadow: 0 0 0 2px var(--sg-petrol, #004058), 0 4px 12px rgba(0,64,88,0.12);
+    opacity: 1;
+    position: relative;
+  }
+  .kat-karte.aktiv::before {
+    content: '▶'; position: absolute; left: -1.5rem; top: 0.7rem;
+    color: var(--sg-petrol, #004058); font-size: 1.1rem;
+  }
+  .kat-karte.fertig { background: #fafffa; }
+  .kat-karte > header {
+    display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem;
+  }
+  .kat-karte h4 { margin: 0; font-size: 0.95rem; flex: 1; }
+  .kat-num {
+    width: 1.5rem; height: 1.5rem; border-radius: 50%;
+    background: #eef0f4; color: #555;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; font-weight: 600;
+  }
+  .kat-karte.aktiv .kat-num { background: var(--sg-petrol, #004058); color: white; }
+  .kat-check { color: #060; font-weight: 600; }
+  .kat-status { color: #666; font-size: 0.85em; }
+  .kat-hint { color: #888; font-size: 0.78rem; margin-left: auto; }
+
+  .pills { display: flex; flex-direction: column; gap: 0.25rem; }
+  .pill {
+    --pill-color: #888;
+    display: flex; align-items: stretch; gap: 0.5rem;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background: #f6f6f8;
+    padding: 0.32rem 0.5rem 0.32rem 0;
+    text-align: left;
+    font: inherit; font-size: 0.88rem; color: #333;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  .pill:hover { background: #ececf2; }
+  .pill .pill-num {
+    width: 1.7rem; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 600; color: var(--pill-color);
+    border-right: 3px solid var(--pill-color);
+    font-family: ui-monospace, monospace;
+  }
+  .pill .pill-text { flex: 1; line-height: 1.25; padding: 0.05rem 0; }
+  .pill.gewaehlt {
+    background: color-mix(in srgb, var(--pill-color) 18%, white);
+    border-color: var(--pill-color);
+    font-weight: 500;
+  }
+  .pill.gewaehlt .pill-num { color: white; background: var(--pill-color); border-right-color: var(--pill-color); }
+  .pill.keine-angabe { --pill-color: #888; font-style: italic; color: #555; }
+
+  .bemerkungs-karte {
+    border: 1px solid #ddd; border-radius: 8px; padding: 0.6rem 0.8rem; background: white;
+    margin-top: 0.5rem;
+  }
+  .bemerkungs-karte > header { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .bemerkungs-karte h4 { margin: 0; font-size: 0.95rem; flex: 1; }
+  .bemerkungs-karte textarea {
+    width: 100%; box-sizing: border-box; font-family: inherit; font-size: 0.92rem;
+    padding: 0.4rem 0.5rem; border: 1px solid #ccc; border-radius: 4px;
+  }
+  .bemerkungs-karte textarea:focus { outline: 2px solid var(--sg-petrol, #004058); outline-offset: 1px; }
+
+  /* Cheat-Sheet Overlay */
+  .cheat-overlay {
+    position: fixed; inset: 0; background: rgba(20,20,30,0.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
+  }
+  .cheat-modal {
+    background: white; border-radius: 10px; max-width: 720px; width: 100%;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3); padding: 1.2rem 1.4rem;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .cheat-modal > header { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.8rem; }
+  .cheat-modal h2 { margin: 0; font-size: 1.15rem; flex: 1; }
+  .cheat-close {
+    border: 0; background: transparent; font-size: 1.2rem; cursor: pointer; color: #888;
+    padding: 0.2rem 0.4rem;
+  }
+  .cheat-close:hover { color: #000; }
+  .cheat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem 1.6rem; }
+  .cheat-grid section h3 { margin: 0 0 0.4rem; font-size: 0.85rem; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+  .cheat-grid dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.7rem; align-items: baseline; }
+  .cheat-grid dt { white-space: nowrap; }
+  .cheat-grid dd { margin: 0; color: #444; }
+  kbd {
+    display: inline-block; padding: 0.05rem 0.4rem; border: 1px solid #aaa;
+    border-bottom-width: 2px; border-radius: 3px; background: #f5f5f5;
+    font-family: ui-monospace, monospace; font-size: 0.85em;
+    line-height: 1; vertical-align: 0.05em;
+  }
+  .cheat-modal footer { margin-top: 1rem; padding-top: 0.7rem; border-top: 1px solid #eee; color: #666; font-size: 0.85rem; }
+  .cheat-modal footer p { margin: 0; }
 </style>
