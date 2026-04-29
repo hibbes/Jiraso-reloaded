@@ -360,6 +360,17 @@ pub fn klassenraum_schueler(klasse_id: i64, state: tauri::State<AppState>) -> Ap
     stammdaten::list_schueler(&conn, klasse_id)
 }
 
+// --- Modul-Uebersicht (read-only Aggregat pro Schueler:in) ---
+
+use crate::uebersicht::{self, SchuelerUebersicht};
+
+#[tauri::command]
+pub fn uebersicht_schueler(schueler_id: i64, state: tauri::State<AppState>) -> AppResult<SchuelerUebersicht> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    uebersicht::schueler_uebersicht(&conn, schueler_id)
+}
+
 use crate::bug_report::{self, IssueResponse};
 
 #[tauri::command]

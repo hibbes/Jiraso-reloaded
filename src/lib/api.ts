@@ -237,6 +237,36 @@ export const klassenraum = {
     invoke<SchuelerMini[]>('klassenraum_schueler', { klasseId })
 };
 
+// --- Modul-Übersicht ---
+
+export type ModulZelle = {
+  fach_id: number;
+  fach_name: string;
+  fach_reihenfolge: number;
+  kategorie_id: number;
+  kategorie_name: string;
+  kategorie_reihenfolge: number;
+  formulierung_text: string | null;
+  bewertet: boolean;
+};
+
+export type SchuelerUebersicht = {
+  schueler_id: number;
+  vorname: string;
+  nachname: string;
+  klasse_name: string;
+  schuljahr_bezeichnung: string;
+  module: ModulZelle[];
+  bemerkung: string | null;
+  bewertete_module: number;
+  gesamt_module: number;
+};
+
+export const uebersicht = {
+  schueler: (schuelerId: number) =>
+    invoke<SchuelerUebersicht>('uebersicht_schueler', { schuelerId })
+};
+
 // --- Bug-Report ---
 
 export type IssueResponse = { number: number; html_url: string };

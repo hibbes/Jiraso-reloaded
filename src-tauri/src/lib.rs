@@ -20,6 +20,7 @@ pub mod import;
 pub mod katalog;
 pub mod bewertung;
 pub mod bemerkung;
+pub mod uebersicht;
 pub mod bug_report;
 
 #[cfg(feature = "desktop")]
@@ -109,6 +110,7 @@ pub fn run() {
             commands::bemerkung_set,
             commands::klassenraum_klassen,
             commands::klassenraum_schueler,
+            commands::uebersicht_schueler,
             commands::bug_report_submit,
         ])
         .run(tauri::generate_context!())

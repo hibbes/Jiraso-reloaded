@@ -27,11 +27,11 @@
         href: '/bewertung',
       },
       {
-        titel: 'Übersicht',
-        beschreibung: 'Klasse im Blick, Bewertungen nachverfolgen',
-        rollen: ['klassenlehrer', 'administrator'],
+        titel: 'Modul-Übersicht',
+        beschreibung: 'Alle Bewertungen + Bemerkung pro Schüler:in',
+        rollen: ['fachlehrer', 'klassenlehrer', 'administrator'],
         icon: '📊',
-        tbd: true,
+        href: '/uebersicht',
       },
       {
         titel: 'Drucken & Export',
