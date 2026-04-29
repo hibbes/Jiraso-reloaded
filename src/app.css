@@ -38,7 +38,46 @@
   --sg-space-sm: 0.8rem;
   --sg-space-md: 1.2rem;
   --sg-space-lg: 1.8rem;
+
+  /* Surface-Tokens (werden im Dark-Mode ueberschrieben) */
+  --sg-surface:      #ffffff;
+  --sg-surface-alt:  #fafbfc;
+  --sg-input-bg:     #ffffff;
 }
+
+/* Dark Mode: gleicher Token-Satz, dunklere Werte. Aktiviert via
+   <html data-theme="dark"> (gesetzt vom Layout). */
+:root[data-theme="dark"] {
+  --sg-petrol:       #4dabd2;
+  --sg-petrol-hover: #6ec0e0;
+  --sg-petrol-light: #2d8db2;
+  --sg-gold:         #ffd566;
+  --sg-gold-soft:    rgba(255, 213, 102, 0.18);
+  --sg-bg-card:      #20232a;
+  --sg-bg-light:     #15171c;
+  --sg-border:       #353a44;
+  --sg-text:         #e8e8ec;
+  --sg-text-light:   #c0c0c8;
+  --sg-meta:         #909098;
+  --sg-meta-light:   #707078;
+  --sg-danger:       #d96080;
+  --sg-success:      #4caf7a;
+  --sg-shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --sg-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3);
+  --sg-surface:      #1d2027;
+  --sg-surface-alt:  #181b21;
+  --sg-input-bg:     #2a2e36;
+}
+
+:root[data-theme="dark"] body { background: var(--sg-bg-light); color: var(--sg-text); }
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  background: var(--sg-input-bg);
+  color: var(--sg-text);
+  border-color: var(--sg-border);
+}
+:root[data-theme="dark"] .card { background: var(--sg-surface); }
 
 /* Reset + Base */
 *, *::before, *::after { box-sizing: border-box; }
@@ -178,3 +217,11 @@ label {
 .text-muted { color: var(--sg-meta); }
 .text-small { font-size: 0.85rem; }
 .mono { font-family: var(--sg-font-mono); }
+
+/* Volle Bildschirmbreite fuer breite Arbeitsansichten (Bewertungs-
+   Matrix auf 16:9-Monitoren). Wird vom Page-Code per .wide getoggelt. */
+.app-main.wide {
+  max-width: none !important;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}

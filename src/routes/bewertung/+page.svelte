@@ -318,6 +318,16 @@
     };
   });
 
+  // Matrix-View bekommt die volle Bildschirmbreite (16:9-Monitore),
+  // Panel-View bleibt im normalen 1280px-Container.
+  $effect(() => {
+    if (typeof document === 'undefined') return;
+    const main = document.querySelector('.app-main');
+    if (!main) return;
+    if (viewMode === 'matrix') main.classList.add('wide');
+    else main.classList.remove('wide');
+  });
+
   function key(s: number, k: number) { return `${s}:${k}`; }
 
   async function ladeKlasseUndFach() {
@@ -665,10 +675,18 @@
           <tbody>
             {#each schueler as s (s.id)}
               <tr class:fokus={fokusSchueler?.id === s.id} onclick={() => fokusiere(s)}>
-                <td>{s.sortname}</td>
+                <td class="schueler-cell">{s.sortname}</td>
                 {#each kategorien as k (k.id)}
                   {@const c = cells[key(s.id, k.id)] ?? { formulierung_id: null, geaendert_am: null, status: 'idle' }}
-                  <td class:konflikt={c.status === 'konflikt'}>
+                  {@const forms = formulierungenByKat[k.id] ?? []}
+                  {@const fIdx = c.formulierung_id != null ? forms.findIndex(f => f.id === c.formulierung_id) : -1}
+                  {@const farbe = fIdx >= 0 ? pillFarbe(fIdx, forms.length) : null}
+                  <td
+                    class:konflikt={c.status === 'konflikt'}
+                    class:gewaehlt={fIdx >= 0}
+                    class:keine-angabe={c.formulierung_id === null && c.geaendert_am !== null}
+                    style:--cell-color={farbe}
+                  >
                     <select
                       value={c.formulierung_id ?? ''}
                       onchange={(e) => {
@@ -677,7 +695,7 @@
                       }}
                     >
                       <option value="">— keine Angabe —</option>
-                      {#each (formulierungenByKat[k.id] ?? []) as f (f.id)}
+                      {#each forms as f (f.id)}
                         <option value={f.id}>{f.text}</option>
                       {/each}
                     </select>
@@ -686,7 +704,7 @@
                       <div class="konflikt-banner">
                         Andere Sitzung hat
                         {#if c.konfliktServerFid != null}
-                          „{(formulierungenByKat[k.id] ?? []).find(x => x.id === c.konfliktServerFid)?.text ?? '?'}"
+                          „{forms.find(x => x.id === c.konfliktServerFid)?.text ?? '?'}"
                         {:else}
                           „— keine Angabe —"
                         {/if}
@@ -788,15 +806,32 @@
   header { display: flex; justify-content: space-between; align-items: center; }
   .error { background: #fee; color: #900; padding: 1rem; border-radius: 4px; }
   .controls { display: flex; gap: 1rem; margin: 1rem 0; }
-  .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1rem; }
   .matrix { overflow: auto; }
-  table { border-collapse: collapse; font-size: 0.85rem; width: 100%; }
-  th, td { border: 1px solid #ddd; padding: 0.3rem; vertical-align: top; }
-  thead th { background: #f5f5f5; position: sticky; top: 0; }
-  tr.fokus td { background: #fff8e1; }
-  td.konflikt { background: #fee; }
-  td select { max-width: 200px; }
-  td .status { margin-left: 0.3rem; color: #666; }
+  table { border-collapse: collapse; font-size: 0.92rem; width: 100%; table-layout: fixed; }
+  th, td { border: 1px solid var(--sg-border); padding: 0.4rem; vertical-align: middle; }
+  thead th { background: var(--sg-bg-card); position: sticky; top: 0; color: var(--sg-petrol); font-size: 0.85rem; }
+  th.schueler-cell, td.schueler-cell { width: 12rem; font-weight: 500; }
+  tr.fokus td { background: var(--sg-gold-soft, #fff8e1); }
+  td.konflikt { background: #ffe8e8 !important; }
+  td.gewaehlt {
+    background: color-mix(in srgb, var(--cell-color) 14%, transparent);
+    border-left: 4px solid var(--cell-color);
+  }
+  td.keine-angabe { background: #f4f4f6; font-style: italic; }
+  td select {
+    width: 100%;
+    max-width: none;
+    font-size: 0.9rem;
+    padding: 0.32rem 0.5rem;
+    background: white;
+  }
+  td.gewaehlt select {
+    background: color-mix(in srgb, var(--cell-color) 8%, white);
+    border-color: var(--cell-color);
+    font-weight: 500;
+  }
+  td .status { margin-left: 0.3rem; color: var(--sg-meta); font-size: 0.85em; }
   .konflikt-banner { background: #fee; border: 1px solid #c00; padding: 0.4rem; margin-top: 0.3rem; font-size: 0.8rem; }
   .konflikt-banner button { margin-left: 0.3rem; }
   .panel { padding: 1rem; border: 1px solid #ddd; border-radius: 4px; }
@@ -897,6 +932,7 @@
     text-align: left;
     border: 0;
     background: transparent;
+    color: var(--sg-text);
     padding: 0.35rem 0.5rem;
     font: inherit;
     cursor: pointer;
@@ -904,9 +940,15 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    box-shadow: none;
   }
-  .schueler-liste li button:hover { background: #ececec; }
-  .schueler-liste li.aktiv button { background: #fff3c1; font-weight: 600; box-shadow: inset 3px 0 0 var(--sg-gold, #c9a747); }
+  .schueler-liste li button:hover { background: var(--sg-bg-card); color: var(--sg-text); box-shadow: none; }
+  .schueler-liste li.aktiv button {
+    background: var(--sg-gold-soft, #fff3c1);
+    color: var(--sg-text);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--sg-gold, #c9a747);
+  }
   .schueler-liste li.fertig .bullet { color: #060; }
   .schueler-liste li.angefangen .bullet { color: #b07020; }
   .schueler-liste .bullet { font-size: 1.1rem; line-height: 1; width: 1.2rem; text-align: center; color: #999; }

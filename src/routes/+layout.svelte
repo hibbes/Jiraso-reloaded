@@ -8,7 +8,28 @@
   import BugButton from '$lib/BugButton.svelte';
   import Celebration from '$lib/Celebration.svelte';
 
+  let theme = $state<'light' | 'dark'>('light');
+
+  function applyTheme(t: 'light' | 'dark') {
+    theme = t;
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.theme = t;
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('jiraso-theme', t);
+    }
+  }
+  function toggleTheme() { applyTheme(theme === 'dark' ? 'light' : 'dark'); }
+
   onMount(async () => {
+    const saved = localStorage.getItem('jiraso-theme');
+    if (saved === 'dark' || saved === 'light') {
+      applyTheme(saved);
+    } else if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+      applyTheme('dark');
+    } else {
+      applyTheme('light');
+    }
     session.schule = await schulname();
     session.schuljahr = await aktuellesSchuljahr();
     session.rolle = await currentRole();
@@ -32,6 +53,14 @@
     </div>
   </div>
   <div class="header-right">
+    <button
+      class="btn-theme"
+      onclick={toggleTheme}
+      title={theme === 'dark' ? 'Hell-Modus' : 'Dark-Modus'}
+      aria-label={theme === 'dark' ? 'Hell-Modus' : 'Dark-Modus'}
+    >
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
     {#if session.rolle}
       <span class="badge role-{session.rolle}">{session.rolle}</span>
       <button class="btn-logout" onclick={handleLogout}>Abmelden</button>
@@ -117,6 +146,20 @@
     font-size: 0.88rem;
   }
   .btn-logout:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: #fff;
+    box-shadow: none;
+  }
+  .btn-theme {
+    background: transparent;
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    padding: 0.3rem 0.7rem;
+    font-size: 1rem;
+    line-height: 1;
+    border-radius: 999px;
+  }
+  .btn-theme:hover {
     background: rgba(255, 255, 255, 0.12);
     border-color: #fff;
     box-shadow: none;
