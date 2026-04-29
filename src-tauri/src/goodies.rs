@@ -45,23 +45,22 @@ const ZITATE: &[(&str, &str)] = &[
     ("Behandle die Menschen so, als wären sie, was sie sein sollten, und du hilfst ihnen zu werden, was sie sein können.", "Johann Wolfgang von Goethe"),
 ];
 
-/// Pseudo-zufaellige Auswahl auf Basis der aktuellen Tageszeit (UNIX-Sekunden).
-/// Gibt bei wiederholtem Aufruf innerhalb derselben Sekunde dasselbe Zitat —
-/// das ist gewuenscht, damit Refresh nicht zum Wuerfel-Spiel wird.
-pub fn random_zitat(now_secs: u64) -> Zitat {
-    let idx = (now_secs as usize) % ZITATE.len();
+/// Pseudo-zufaellige Auswahl auf Basis eines Seeds.
+pub fn random_zitat(seed: u128) -> Zitat {
+    let idx = (seed as usize) % ZITATE.len();
     let (text, autor) = ZITATE[idx];
     Zitat { text: text.to_string(), autor: autor.to_string() }
 }
 
-/// Wrapper, der die System-Uhr abfragt. In Tests nutze die seed-Funktion oben.
+/// Wrapper, der die System-Uhr in Nanosekunden-Genauigkeit abfragt.
+/// Damit veraendert sich das Zitat bei jedem Refresh (Bewertungen werden
+/// in einer Sitzung am Stueck eingegeben, da soll das Zitat rotieren).
 pub fn aktuelles_zitat() -> Zitat {
-    let secs = std::time::SystemTime::now()
+    let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
+        .map(|d| d.as_nanos())
         .unwrap_or(0);
-    // Tagesgranularitaet: 86400s pro Tag, damit ein Zitat den ganzen Tag ueberlebt.
-    random_zitat(secs / 86400)
+    random_zitat(nanos)
 }
 
 #[cfg(test)]
@@ -78,7 +77,7 @@ mod tests {
     #[test]
     fn random_zitat_variiert_mit_seed() {
         let mut gesehen = std::collections::HashSet::new();
-        for s in 0..ZITATE.len() as u64 {
+        for s in 0..ZITATE.len() as u128 {
             gesehen.insert(random_zitat(s).text);
         }
         assert_eq!(gesehen.len(), ZITATE.len(), "jeder Seed sollte ein anderes Zitat liefern");

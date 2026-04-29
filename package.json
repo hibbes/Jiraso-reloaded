@@ -1,6 +1,6 @@
 {
   "name": "jiraso-reloaded",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Verbalbeurteilungs-Software fuer das Schiller-Gymnasium Offenburg",
   "type": "module",
   "scripts": {
