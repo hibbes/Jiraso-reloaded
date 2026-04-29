@@ -287,16 +287,19 @@
     border-collapse: collapse;
     font-size: 0.78rem;
     table-layout: fixed;
+    box-sizing: border-box;
   }
   .matrix th, .matrix td {
     border: 1px solid #444;
     padding: 0.15rem 0.3rem;
+    box-sizing: border-box;
+    word-break: break-word;
   }
   .matrix thead tr { height: 5.4rem; }
-  .matrix .kat-spalte { width: 7.2rem; border: 0; }
-  .matrix .form-spalte { width: auto; border: 0; }
+  .matrix .kat-spalte { width: 14%; border: 0; }
+  .matrix .form-spalte { width: 38%; border: 0; }
   .matrix .fach-spalte {
-    width: 1.3rem;
+    width: 4%;
     padding: 0;
     vertical-align: bottom;
     border-bottom: 1px solid #444;
@@ -316,13 +319,12 @@
     font-weight: 600;
     text-align: left;
     vertical-align: middle;
-    width: 7.2rem;
-    font-size: 0.78rem;
-    line-height: 1.15;
-    word-wrap: break-word;
+    font-size: 0.74rem;
+    line-height: 1.1;
+    word-break: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
-    padding: 0.2rem 0.35rem;
+    padding: 0.2rem 0.3rem;
   }
   .matrix .form-text {
     text-align: left;
@@ -331,7 +333,7 @@
   .matrix .kreuz {
     text-align: center;
     font-weight: 600;
-    width: 1.3rem;
+    width: 4%;
     padding: 0;
   }
 
@@ -342,7 +344,7 @@
   }
   .bem-titel { font-size: 0.8rem; color: #333; margin-bottom: 0.2rem; }
   .bem-text {
-    min-height: 4.5rem;
+    min-height: 7rem;
     white-space: pre-wrap;
     font-size: 0.85rem;
     line-height: 1.35;
@@ -404,7 +406,7 @@
 
     .bemerkung { margin-top: 0.4rem; padding: 0.25rem 0.4rem; }
     .bem-titel { font-size: 8.5pt; margin-bottom: 0.15rem; }
-    .bem-text { font-size: 9pt; line-height: 1.3; min-height: 3.5rem; max-height: 4.8rem; overflow: hidden; }
+    .bem-text { font-size: 9pt; line-height: 1.3; min-height: 7rem; max-height: 9rem; overflow: hidden; }
 
     .bogen-fuss { margin-top: 0.4rem; font-size: 8.5pt; }
     .rolle-zeile { font-size: 7.5pt; }
