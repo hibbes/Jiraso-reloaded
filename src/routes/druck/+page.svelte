@@ -161,46 +161,34 @@
         <div class="schule">
           <img src="/schiller_logo.png" alt="Schiller-Gymnasium Offenburg" class="logo" />
         </div>
-        <div class="titel">
-          <div class="titel-haupt">Allgemeine Beurteilung</div>
-          <div class="titel-name">{u.vorname} {u.nachname}</div>
-        </div>
         <div class="schuljahr-klasse">
           Schuljahr {u.schuljahr_bezeichnung}<br />
           Klasse: {u.klasse_name}
         </div>
       </header>
 
-      <div class="matrix-wrap">
-      <table class="matrix">
-        <thead>
-          <tr>
-            <th class="kat-spalte"></th>
-            <th class="form-spalte"></th>
+      <div class="matrix">
+        <div class="cell name-plate">
+          <div class="np-titel">Allgemeine Beurteilung</div>
+          <div class="np-name">{u.vorname} {u.nachname}</div>
+        </div>
+        {#each faecher as f (f.id)}
+          <div class="cell fach"><span>{f.name}</span></div>
+        {/each}
+        {#each kategorien as k (k.id)}
+          {@const forms = formulierungenByKat[k.id] ?? []}
+          {#each forms as form, i (form.id)}
+            {#if i === 0}
+              <div class="cell kat" style="grid-row: span {forms.length}">{k.name}</div>
+            {/if}
+            <div class="cell form-text">{form.text}</div>
             {#each faecher as f (f.id)}
-              <th class="fach-spalte"><span class="fach-name">{f.name}</span></th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each kategorien as k (k.id)}
-            {@const forms = formulierungenByKat[k.id] ?? []}
-            {#each forms as form, i (form.id)}
-              <tr>
-                {#if i === 0}
-                  <th class="kat-name" rowspan={forms.length}>{k.name}</th>
-                {/if}
-                <td class="form-text">{form.text}</td>
-                {#each faecher as f (f.id)}
-                  <td class="kreuz">
-                    {#if auswahlSet.has(`${form.id}:${f.id}`)}X{/if}
-                  </td>
-                {/each}
-              </tr>
+              <div class="cell kreuz">
+                {#if auswahlSet.has(`${form.id}:${f.id}`)}X{/if}
+              </div>
             {/each}
           {/each}
-        </tbody>
-      </table>
+        {/each}
       </div>
 
       <section class="bemerkung">
@@ -271,100 +259,133 @@
   }
 
   .bogen-kopf {
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
-    align-items: start;
-    gap: 0.8rem;
-    margin-bottom: 0.6rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
   }
   .schule { display: flex; align-items: center; }
-  .schule .logo { height: 60px; width: auto; }
-  .titel { text-align: center; }
-  .titel-haupt { font-weight: 600; font-size: 1rem; margin-bottom: 0.3rem; }
-  .titel-name { font-size: 1.05rem; font-weight: 500; border-bottom: 1px solid #000; padding-bottom: 0.15rem; min-width: 12rem; display: inline-block; }
-  .schuljahr-klasse { font-size: 0.9rem; line-height: 1.4; text-align: right; }
+  .schule .logo { height: 50px; width: auto; }
+  .schuljahr-klasse { font-size: 0.85rem; line-height: 1.4; text-align: right; }
 
-  .matrix-wrap {
-    width: 100%;
-    box-sizing: border-box;
-  }
+  /* Matrix als CSS-Grid.
+     Linien entstehen als 1px-Gap zwischen weissen Zellen vor
+     dunklem Container -- keine geteilten Borders, jede Linie
+     wird genau einmal gezeichnet.
+     fr-Units: gaps + border werden vom Browser intern abgezogen.
+     width: calc(100% - 1px) verhindert den Blink-Print-Bug, dass
+     die rechte Aussenkante nur als 1 device-px rendert. */
   .matrix {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.78rem;
-    table-layout: fixed;
+    display: grid;
+    grid-template-columns: 17fr 35fr repeat(12, 4fr);
+    background: #444;
+    gap: 1px;
+    border: 1px solid #444;
+    width: calc(100% - 1px);
     box-sizing: border-box;
+    font-size: 8.2pt;
   }
-  .matrix th, .matrix td {
-    border: 1px solid #aaa;
-    padding: 0.15rem 0.3rem;
+  .cell {
+    background: white;
+    padding: 0.11rem 0.32rem;
     box-sizing: border-box;
     word-break: break-word;
+    overflow: hidden;
+    line-height: 1.15;
   }
-  /* Aussenrand-Zellen bekommen einen 2px-Border auf der Aussen-Seite.
-     Internal cell borders (1px) rendern Antialiasing-bedingt als
-     ~2px breite Linie; mit explizit 2px solid bekommen die Aussen-
-     borders die gleiche optische Dicke. */
-  .matrix tr:first-child > * { border-top-width: 2px; }
-  .matrix tbody tr:last-child > * { border-bottom-width: 2px; }
-  .matrix tr > th:first-child,
-  .matrix tr > td:first-child { border-left-width: 2px; }
-  .matrix tr > th:last-child,
-  .matrix tr > td:last-child { border-right-width: 2px; }
-  .matrix thead tr { height: 5.4rem; }
-  .matrix .kat-spalte { width: 17%; border: 0; }
-  .matrix .form-spalte { width: 35%; border: 0; }
-  .matrix .fach-spalte {
-    width: 4%;
-    padding: 0;
-    vertical-align: bottom;
-    border-bottom: 1px solid #444;
-    border-top: 1px solid #444;
+
+  /* Name-Plate: Schuelername oben links, spannt Spalte 1+2.
+     Top + Left werden mit einem white pseudo abgedeckt -> kein
+     sichtbarer Aussenrand nach oben/links. */
+  .cell.name-plate {
+    grid-column: 1 / span 2;
+    grid-row: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 0.4rem 0.6rem;
+    text-align: center;
   }
-  .matrix .fach-name {
+  .cell.name-plate::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    bottom: 0;
+    right: 0;
+    background: white;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .cell.name-plate > * { position: relative; z-index: 1; }
+  .np-titel { font-weight: 600; font-size: 9.8pt; margin-bottom: 0.22rem; }
+  .np-name {
+    font-size: 11.5pt;
+    font-weight: 500;
+    border-bottom: 1px solid #000;
+    padding-bottom: 0.1rem;
+    min-width: 9rem;
+  }
+
+  .cell.fach {
+    padding: 0.18rem 0;
+    height: 5.7rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .cell.fach span {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    display: inline-block;
-    padding: 0.3rem 0;
-    font-size: 0.8rem;
+    font-size: 8.2pt;
     font-weight: 500;
     white-space: nowrap;
+    line-height: 1;
   }
-  .matrix .kat-name {
-    background: #f0f0f0;
+  .cell.kat {
+    background: #eeeeee;
     font-weight: 600;
-    text-align: left;
-    vertical-align: middle;
-    font-size: 0.72rem;
+    font-size: 8.2pt;
+    display: flex;
+    align-items: center;
     line-height: 1.15;
-    /* Wortbrueche nur an Wortgrenzen, nicht mitten im Wort */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
     word-break: normal;
     overflow-wrap: normal;
     hyphens: none;
-    padding: 0.2rem 0.3rem;
   }
-  .matrix .form-text {
-    text-align: left;
-    line-height: 1.2;
+  .cell.form-text {
+    font-size: 8.2pt;
+    line-height: 1.15;
+    display: flex;
+    align-items: center;
   }
-  .matrix .kreuz {
+  .cell.kreuz {
     text-align: center;
     font-weight: 600;
-    width: 4%;
     padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .bemerkung {
-    margin-top: 0.6rem;
+    margin-top: 0.4rem;
     border: 1px solid #444;
-    padding: 0.3rem 0.5rem;
+    padding: 0.25rem 0.4rem;
+    display: flex;
+    flex-direction: column;
+    height: 5rem;
   }
-  .bem-titel { font-size: 0.8rem; color: #333; margin-bottom: 0.2rem; }
+  .bem-titel { font-size: 8.5pt; color: #333; margin-bottom: 0.15rem; }
   .bem-text {
-    min-height: 7rem;
+    font-size: 9pt;
+    line-height: 1.3;
     white-space: pre-wrap;
-    font-size: 0.85rem;
-    line-height: 1.35;
+    overflow: hidden;
   }
 
   .bogen-fuss {
@@ -385,6 +406,12 @@
     font-size: 0.72rem;
   }
   .rolle { text-align: center; }
+  /* Klassenlehrer-Spalte etwas nach links, damit Abstand zum
+     Eltern-Feld groesser wird */
+  .datum-zeile > :nth-child(2),
+  .rolle-zeile > :nth-child(2) {
+    margin-right: 1.6rem;
+  }
 
   @media print {
     @page { size: A4 portrait; margin: 1.3cm; }
@@ -408,32 +435,11 @@
     .bogen-fuss { margin-top: auto !important; }
     .bogen:last-child { page-break-after: auto; }
     .bogen-kopf { margin-bottom: 0.4rem; }
-    .schule .logo { height: 50px; }
-    .titel-haupt { font-size: 0.95rem; margin-bottom: 0.2rem; }
-    .titel-name { font-size: 1rem; }
     .schuljahr-klasse { font-size: 0.82rem; }
-
-    .matrix { font-size: 8.5pt; }
-    .matrix th, .matrix td { padding: 0.08rem 0.25rem; }
-    .matrix thead tr { height: 4.8rem; }
-    .matrix .fach-name { font-size: 8.5pt; padding: 0.2rem 0; }
-    .matrix .kat-name {
-      background: #eee !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-      font-size: 8.5pt;
-      padding: 0.15rem 0.3rem;
-    }
-    .matrix .form-text { font-size: 8.5pt; line-height: 1.15; }
-
-    .bemerkung { margin-top: 0.4rem; padding: 0.25rem 0.4rem; flex-grow: 1; display: flex; flex-direction: column; }
-    .bem-titel { font-size: 8.5pt; margin-bottom: 0.15rem; }
-    .bem-text { font-size: 9pt; line-height: 1.3; flex-grow: 1; overflow: hidden; max-height: 9rem; }
 
     .bogen-fuss { font-size: 9pt; padding-top: 1rem; }
     .datum-zeile { gap: 0.8rem; }
     .unterschrift-linie { height: 1.7rem; }
     .rolle-zeile { font-size: 8pt; margin-top: 0.25rem; gap: 0.8rem; }
-    .bem-text { white-space: pre-wrap; }
   }
 </style>
