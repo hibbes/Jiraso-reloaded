@@ -371,6 +371,19 @@ pub fn uebersicht_schueler(schueler_id: i64, state: tauri::State<AppState>) -> A
     uebersicht::schueler_uebersicht(&conn, schueler_id)
 }
 
+// --- Goodies (Tageszitate) ---
+
+use crate::goodies::{self, Zitat};
+
+#[tauri::command]
+pub fn goodies_zitat(state: tauri::State<AppState>) -> Option<Zitat> {
+    let cfg = state.config.lock().unwrap();
+    if !cfg.goodies.enabled {
+        return None;
+    }
+    Some(goodies::aktuelles_zitat())
+}
+
 use crate::bug_report::{self, IssueResponse};
 
 #[tauri::command]

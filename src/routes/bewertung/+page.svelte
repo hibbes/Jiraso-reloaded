@@ -45,6 +45,52 @@
 
   let bemDebounce: ReturnType<typeof setTimeout> | null = null;
   let pollHandle: ReturnType<typeof setInterval> | null = null;
+  let fertigToast = $state<string | null>(null);
+  let fertigToastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const klasseFertig = $derived(
+    aktiveKlasse !== null && aktivesFach !== null && schueler.length > 0
+      && schueler.every(s => kategorien.every(k => {
+        const c = cells[`${s.id}:${k.id}`];
+        return c && c.geaendert_am !== null;
+      }))
+  );
+
+  function fertigKey(): string | null {
+    if (!aktiveKlasse || !aktivesFach) return null;
+    return `klasse-fertig:${aktiveKlasse.id}:${aktivesFach.id}`;
+  }
+
+  function wurdeGefeiert(): boolean {
+    const k = fertigKey();
+    return k !== null && typeof localStorage !== 'undefined' && localStorage.getItem(k) === '1';
+  }
+
+  function markGefeiert() {
+    const k = fertigKey();
+    if (k && typeof localStorage !== 'undefined') localStorage.setItem(k, '1');
+  }
+
+  function fertigKlick() {
+    if (!aktiveKlasse || !aktivesFach) return;
+    if (!klasseFertig) {
+      zeigeFertigToast('Es fehlen noch Bewertungen — die Klasse ist noch nicht komplett.');
+      return;
+    }
+    if (!wurdeGefeiert()) {
+      celebration.trigger();
+      markGefeiert();
+      zeigeFertigToast(`✨ Klasse ${aktiveKlasse.name} – ${aktivesFach.name}: fertig!`);
+    } else {
+      zeigeFertigToast(`✓ Klasse ${aktiveKlasse.name} – ${aktivesFach.name} ist abgeschlossen.`);
+    }
+  }
+
+  function zeigeFertigToast(msg: string) {
+    if (fertigToastTimer) clearTimeout(fertigToastTimer);
+    fertigToast = msg;
+    fertigToastTimer = setTimeout(() => { fertigToast = null; }, 3000);
+  }
 
   onMount(async () => {
     if (!session.rolle) { goto('/login'); return; }
@@ -116,16 +162,6 @@
     });
     if (r.status === 'Ok') {
       cells[ck] = { formulierung_id: fid, geaendert_am: r.neuer_stand || null, status: 'saved' };
-      // Klasse fertig? Sternenregen-Trigger
-      const allesGesetzt = schueler.every(stud =>
-        kategorien.every(kat => {
-          const c = cells[key(stud.id, kat.id)];
-          return c && c.geaendert_am !== null;
-        })
-      );
-      if (allesGesetzt) {
-        celebration.trigger();
-      }
       setTimeout(() => {
         if (cells[ck].status === 'saved') cells[ck] = { ...cells[ck], status: 'idle' };
       }, 1500);
@@ -236,6 +272,31 @@
   </div>
 
   {#if aktiveKlasse && aktivesFach}
+    <div class="fertig-row">
+      <button
+        class="fertig-button"
+        class:bereit={klasseFertig}
+        onclick={fertigKlick}
+        title={klasseFertig
+          ? 'Klasse als fertig markieren (Speichern passiert automatisch beim Auswählen, dieser Knopf ist nur für die Bestätigung)'
+          : 'Erst alle Zellen bewerten, dann als fertig markieren'}
+      >
+        {#if klasseFertig && wurdeGefeiert()}
+          ✓ Klasse abgeschlossen
+        {:else if klasseFertig}
+          ✨ Fertig — Sternenregen!
+        {:else}
+          Klasse fertig?
+        {/if}
+      </button>
+      <span class="fertig-hinweis">
+        Bewertungen werden automatisch gespeichert, sobald du eine Auswahl triffst.
+      </span>
+      {#if fertigToast}
+        <span class="fertig-toast">{fertigToast}</span>
+      {/if}
+    </div>
+
     <div class="grid">
       <div class="matrix">
         <table>
@@ -336,4 +397,40 @@
   .panel textarea { width: 100%; font-family: inherit; }
   .counter { font-size: 0.8rem; color: #666; }
   .counter.warn { color: #c00; }
+  .fertig-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin: 0.6rem 0 1rem;
+    flex-wrap: wrap;
+  }
+  .fertig-button {
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    border: 1px solid #c0c0c0;
+    background: #f0f0f0;
+    color: #555;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  .fertig-button:hover { background: #e8e8e8; }
+  .fertig-button.bereit {
+    background: var(--sg-petrol, #004058);
+    color: white;
+    border-color: var(--sg-petrol, #004058);
+    font-weight: 500;
+  }
+  .fertig-button.bereit:hover {
+    background: #00567a;
+    border-color: #00567a;
+  }
+  .fertig-hinweis { color: #666; font-size: 0.85rem; }
+  .fertig-toast {
+    color: #060;
+    font-weight: 500;
+    background: #efffe6;
+    padding: 0.3rem 0.7rem;
+    border-radius: 4px;
+    border: 1px solid #c0e0a0;
+  }
 </style>

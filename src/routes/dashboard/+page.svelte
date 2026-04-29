@@ -3,9 +3,18 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { session } from '$lib/session.svelte';
+  import { goodies, type Zitat } from '$lib/api';
 
-  onMount(() => {
-    if (!session.rolle) goto('/login');
+  let zitat = $state<Zitat | null>(null);
+
+  onMount(async () => {
+    if (!session.rolle) {
+      goto('/login');
+      return;
+    }
+    try {
+      zitat = await goodies.zitat();
+    } catch { /* Goodies sind optional, Fehler ignorieren */ }
   });
 
   type Kachel = {
@@ -60,6 +69,14 @@
 </script>
 
 <h1>Start</h1>
+
+{#if zitat}
+  <blockquote class="zitat-banner">
+    <p class="zitat-text">„{zitat.text}"</p>
+    <footer class="zitat-autor">— {zitat.autor}</footer>
+  </blockquote>
+{/if}
+
 <p class="intro text-muted">
   Die Funktionen werden in den folgenden Plänen (2–5) schrittweise aktiviert.
 </p>
@@ -93,6 +110,26 @@
 </div>
 
 <style>
+  .zitat-banner {
+    background: linear-gradient(135deg, #f9f5e7 0%, #fff8de 100%);
+    border-left: 4px solid var(--sg-petrol, #004058);
+    padding: 1rem 1.4rem;
+    margin: 0 0 1.6rem;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .zitat-text {
+    margin: 0 0 0.4rem;
+    font-style: italic;
+    color: #2a2a2a;
+    font-size: 1.05rem;
+    line-height: 1.5;
+  }
+  .zitat-autor {
+    color: #555;
+    font-size: 0.9rem;
+    text-align: right;
+  }
   .intro {
     margin-top: -0.4rem;
     margin-bottom: 2rem;

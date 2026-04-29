@@ -267,6 +267,14 @@ export const uebersicht = {
     invoke<SchuelerUebersicht>('uebersicht_schueler', { schuelerId })
 };
 
+// --- Goodies (Tageszitate) ---
+
+export type Zitat = { text: string; autor: string };
+
+export const goodies = {
+  zitat: () => invoke<Zitat | null>('goodies_zitat')
+};
+
 // --- Bug-Report ---
 
 export type IssueResponse = { number: number; html_url: string };
