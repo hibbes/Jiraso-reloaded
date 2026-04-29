@@ -140,4 +140,15 @@
     border-top: 1px solid var(--sg-border);
   }
   .sep { opacity: 0.5; }
+
+  /* Im Druck-Modus: globalen App-Header + Footer + Bug-Button verstecken,
+     nur die Druck-Inhalte (Bogen) bleiben sichtbar. */
+  @media print {
+    :global(.app-header),
+    :global(.app-footer),
+    :global(.bug-button) {
+      display: none !important;
+    }
+    :global(.app-main) { padding: 0 !important; margin: 0 !important; }
+  }
 </style>

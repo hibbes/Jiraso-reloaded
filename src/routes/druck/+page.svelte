@@ -159,8 +159,7 @@
     <article class="bogen">
       <header class="bogen-kopf">
         <div class="schule">
-          <strong>Schiller-Gymnasium</strong><br />
-          Offenburg
+          <img src="/schiller_logo.png" alt="Schiller-Gymnasium Offenburg" class="logo" />
         </div>
         <div class="titel">
           <div class="titel-haupt">Allgemeine Beurteilung</div>
@@ -276,8 +275,8 @@
     gap: 0.8rem;
     margin-bottom: 0.6rem;
   }
-  .schule { font-size: 0.95rem; line-height: 1.25; }
-  .schule strong { font-size: 1rem; }
+  .schule { display: flex; align-items: center; }
+  .schule .logo { height: 60px; width: auto; }
   .titel { text-align: center; }
   .titel-haupt { font-weight: 600; font-size: 1rem; margin-bottom: 0.3rem; }
   .titel-name { font-size: 1.05rem; font-weight: 500; border-bottom: 1px solid #000; padding-bottom: 0.15rem; min-width: 12rem; display: inline-block; }
@@ -294,7 +293,7 @@
     padding: 0.15rem 0.3rem;
   }
   .matrix thead tr { height: 5.4rem; }
-  .matrix .kat-spalte { width: 4.5rem; border: 0; }
+  .matrix .kat-spalte { width: 7.2rem; border: 0; }
   .matrix .form-spalte { width: auto; border: 0; }
   .matrix .fach-spalte {
     width: 1.3rem;
@@ -317,9 +316,13 @@
     font-weight: 600;
     text-align: left;
     vertical-align: middle;
-    width: 4.5rem;
+    width: 7.2rem;
     font-size: 0.78rem;
     line-height: 1.15;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    padding: 0.2rem 0.35rem;
   }
   .matrix .form-text {
     text-align: left;
