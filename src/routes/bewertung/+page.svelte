@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { confirm as tauriConfirm } from '@tauri-apps/plugin-dialog';
   import { session } from '$lib/session.svelte';
   import { celebration } from '$lib/celebration.svelte.ts';
   import {
@@ -100,7 +101,13 @@
   let wuerfelLaufend = $state(false);
   async function klasseWuerfeln() {
     if (!aktiveKlasse) return;
-    if (!confirm(`Test-Bewertungen für Klasse ${aktiveKlasse.name} wuerfeln?\n\nDas ueberschreibt bestehende Bewertungen UND Bemerkungen aller Schueler:innen dieser Klasse fuer ALLE Faecher.`)) return;
+    // Tauri-Dialog statt window.confirm: window.confirm ist im
+    // Tauri-WebView auf macOS nicht implementiert -> Klick verpufft.
+    const ok = await tauriConfirm(
+      `Test-Bewertungen für Klasse ${aktiveKlasse.name} würfeln?\n\nDas überschreibt bestehende Bewertungen UND Bemerkungen aller Schüler:innen dieser Klasse für ALLE Fächer.`,
+      { title: 'Klasse würfeln', kind: 'warning' }
+    );
+    if (!ok) return;
     wuerfelLaufend = true;
     fehler = null;
     try {
