@@ -288,6 +288,7 @@
     font-size: 0.78rem;
     table-layout: fixed;
     box-sizing: border-box;
+    border: 1px solid #444;
   }
   .matrix th, .matrix td {
     border: 1px solid #444;
@@ -296,8 +297,8 @@
     word-break: break-word;
   }
   .matrix thead tr { height: 5.4rem; }
-  .matrix .kat-spalte { width: 14%; border: 0; }
-  .matrix .form-spalte { width: 38%; border: 0; }
+  .matrix .kat-spalte { width: 17%; border: 0; }
+  .matrix .form-spalte { width: 35%; border: 0; }
   .matrix .fach-spalte {
     width: 4%;
     padding: 0;
@@ -319,11 +320,12 @@
     font-weight: 600;
     text-align: left;
     vertical-align: middle;
-    font-size: 0.74rem;
-    line-height: 1.1;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
+    font-size: 0.72rem;
+    line-height: 1.15;
+    /* Wortbrueche nur an Wortgrenzen, nicht mitten im Wort */
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
     padding: 0.2rem 0.3rem;
   }
   .matrix .form-text {
@@ -370,18 +372,19 @@
   .rolle { text-align: center; }
 
   @media print {
-    @page { size: A4 portrait; margin: 0.9cm 1.0cm; }
+    @page { size: A4 portrait; margin: 1.3cm; }
+    html, body { margin: 0 !important; padding: 0 !important; }
     .no-print { display: none !important; }
     body { background: white; color: black; }
-    .druck-bereich { max-width: none; padding: 0; }
+    .druck-bereich { max-width: none; padding: 0; margin: 0; }
     .bogen {
       page-break-after: always;
       box-shadow: none;
       padding: 0;
       margin: 0;
       border-radius: 0;
-      /* Erzwinge: alles passt auf eine A4-Seite */
-      max-height: 27.7cm;
+      /* Verfuegbare Hoehe = 29.7cm - 2 * 1.3cm = 27.1cm — Reserve einplanen */
+      max-height: 27cm;
       overflow: hidden;
     }
     .bogen:last-child { page-break-after: auto; }
@@ -406,9 +409,11 @@
 
     .bemerkung { margin-top: 0.4rem; padding: 0.25rem 0.4rem; }
     .bem-titel { font-size: 8.5pt; margin-bottom: 0.15rem; }
-    .bem-text { font-size: 9pt; line-height: 1.3; min-height: 7rem; max-height: 9rem; overflow: hidden; }
+    .bem-text { font-size: 9pt; line-height: 1.3; min-height: 4rem; max-height: 5.5rem; overflow: hidden; }
 
-    .bogen-fuss { margin-top: 0.4rem; font-size: 8.5pt; }
-    .rolle-zeile { font-size: 7.5pt; }
+    .bogen-fuss { margin-top: 1rem; font-size: 9pt; }
+    .datum-zeile { gap: 0.8rem; }
+    .unterschrift-linie { height: 1.5rem; }
+    .rolle-zeile { font-size: 8pt; margin-top: 0.25rem; gap: 0.8rem; }
   }
 </style>
