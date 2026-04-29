@@ -368,7 +368,7 @@
   .rolle { text-align: center; }
 
   @media print {
-    @page { size: A4 portrait; margin: 1.2cm 1.4cm; }
+    @page { size: A4 portrait; margin: 0.9cm 1.0cm; }
     .no-print { display: none !important; }
     body { background: white; color: black; }
     .druck-bereich { max-width: none; padding: 0; }
@@ -378,12 +378,35 @@
       padding: 0;
       margin: 0;
       border-radius: 0;
+      /* Erzwinge: alles passt auf eine A4-Seite */
+      max-height: 27.7cm;
+      overflow: hidden;
     }
     .bogen:last-child { page-break-after: auto; }
-    .matrix { font-size: 9pt; }
-    .matrix .fach-name { font-size: 9pt; }
-    .matrix .kat-name { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .bem-titel { font-size: 9pt; }
-    .bem-text { font-size: 10pt; }
+    .bogen-kopf { margin-bottom: 0.4rem; }
+    .schule .logo { height: 50px; }
+    .titel-haupt { font-size: 0.95rem; margin-bottom: 0.2rem; }
+    .titel-name { font-size: 1rem; }
+    .schuljahr-klasse { font-size: 0.82rem; }
+
+    .matrix { font-size: 8.5pt; }
+    .matrix th, .matrix td { padding: 0.08rem 0.25rem; }
+    .matrix thead tr { height: 4.8rem; }
+    .matrix .fach-name { font-size: 8.5pt; padding: 0.2rem 0; }
+    .matrix .kat-name {
+      background: #eee !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      font-size: 8.5pt;
+      padding: 0.15rem 0.3rem;
+    }
+    .matrix .form-text { font-size: 8.5pt; line-height: 1.15; }
+
+    .bemerkung { margin-top: 0.4rem; padding: 0.25rem 0.4rem; }
+    .bem-titel { font-size: 8.5pt; margin-bottom: 0.15rem; }
+    .bem-text { font-size: 9pt; line-height: 1.3; min-height: 3.5rem; max-height: 4.8rem; overflow: hidden; }
+
+    .bogen-fuss { margin-top: 0.4rem; font-size: 8.5pt; }
+    .rolle-zeile { font-size: 7.5pt; }
   }
 </style>
