@@ -264,7 +264,9 @@ export type SchuelerUebersicht = {
 
 export const uebersicht = {
   schueler: (schuelerId: number) =>
-    invoke<SchuelerUebersicht>('uebersicht_schueler', { schuelerId })
+    invoke<SchuelerUebersicht>('uebersicht_schueler', { schuelerId }),
+  klasse: (klasseId: number) =>
+    invoke<SchuelerUebersicht[]>('uebersicht_klasse', { klasseId })
 };
 
 // --- Goodies (Tageszitate) ---

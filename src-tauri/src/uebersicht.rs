@@ -35,6 +35,18 @@ pub struct SchuelerUebersicht {
     pub gesamt_module: usize,
 }
 
+pub fn klassen_uebersicht(conn: &Connection, klasse_id: i64) -> AppResult<Vec<SchuelerUebersicht>> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM schueler WHERE klasse_id = ?1 ORDER BY sortname",
+    )?;
+    let ids: Vec<i64> = stmt
+        .query_map(params![klasse_id], |r| r.get::<_, i64>(0))?
+        .collect::<Result<_, _>>()?;
+    ids.into_iter()
+        .map(|id| schueler_uebersicht(conn, id))
+        .collect()
+}
+
 pub fn schueler_uebersicht(conn: &Connection, schueler_id: i64) -> AppResult<SchuelerUebersicht> {
     let (vorname, nachname, klasse_name, schuljahr_bezeichnung, schuljahr_id): (String, String, String, String, i64) =
         conn.query_row(
@@ -214,5 +226,26 @@ mod tests {
         let (_d, conn) = seed();
         let r = schueler_uebersicht(&conn, 9999);
         assert!(r.is_err());
+    }
+
+    #[test]
+    fn klassen_uebersicht_liefert_alle_in_sortname_ordnung() {
+        let (_d, conn) = seed();
+        // Anna Apfel ist schon drin; noch zwei dazu
+        conn.execute("INSERT INTO schueler(klasse_id, vorname, nachname) VALUES (1, 'Bert', 'Birne')", []).unwrap();
+        conn.execute("INSERT INTO schueler(klasse_id, vorname, nachname) VALUES (1, 'Cora', 'Citro')", []).unwrap();
+        let alle = klassen_uebersicht(&conn, 1).unwrap();
+        assert_eq!(alle.len(), 3);
+        assert_eq!(alle[0].nachname, "Apfel");
+        assert_eq!(alle[1].nachname, "Birne");
+        assert_eq!(alle[2].nachname, "Citro");
+    }
+
+    #[test]
+    fn klassen_uebersicht_leere_klasse() {
+        let (_d, conn) = seed();
+        conn.execute("INSERT INTO klasse(schuljahr_id, name) VALUES (1, '5b')", []).unwrap();
+        let alle = klassen_uebersicht(&conn, 2).unwrap();
+        assert!(alle.is_empty());
     }
 }

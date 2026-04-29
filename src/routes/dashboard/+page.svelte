@@ -44,10 +44,10 @@
       },
       {
         titel: 'Drucken & Export',
-        beschreibung: 'PDF für Eltern-Rückmeldung, A4 quer',
+        beschreibung: 'Klassen-Bogen drucken oder als PDF speichern',
         rollen: ['klassenlehrer', 'administrator'],
         icon: '🖨️',
-        tbd: true,
+        href: '/druck',
       },
       {
         titel: 'Katalog verwalten',

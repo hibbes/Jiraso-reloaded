@@ -371,6 +371,13 @@ pub fn uebersicht_schueler(schueler_id: i64, state: tauri::State<AppState>) -> A
     uebersicht::schueler_uebersicht(&conn, schueler_id)
 }
 
+#[tauri::command]
+pub fn uebersicht_klasse(klasse_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<SchuelerUebersicht>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    uebersicht::klassen_uebersicht(&conn, klasse_id)
+}
+
 // --- Goodies (Tageszitate) ---
 
 use crate::goodies::{self, Zitat};

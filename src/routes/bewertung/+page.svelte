@@ -286,7 +286,7 @@
         {:else if klasseFertig}
           ✨ Fertig — Sternenregen!
         {:else}
-          Klasse fertig?
+          Klasse fertig
         {/if}
       </button>
       <span class="fertig-hinweis">
