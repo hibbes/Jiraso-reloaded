@@ -108,6 +108,54 @@ fn next_reihenfolge_formulierung(conn: &Connection, kategorie_id: i64) -> AppRes
     )?)
 }
 
+/// Default-Fächerliste aus dem ursprünglichen Jiraso 2021 (Fächer.txt).
+pub const DEFAULT_FAECHER: &[&str] = &[
+    "Mathematik",
+    "Deutsch",
+    "Religion-Ethik",
+    "Erdkunde",
+    "Geschichte",
+    "Englisch",
+    "Französisch",
+    "Latein",
+    "Biologie",
+    "Sport",
+    "Musik",
+    "Bildende Kunst",
+];
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SeedSummary {
+    pub neue_faecher: usize,
+    pub uebersprungene_faecher: usize,
+}
+
+/// Legt die 12 Default-Fächer im angegebenen Schuljahr an. Bestehende
+/// Fächer (Name-Match, case-sensitive) werden übersprungen, neue
+/// hinten an die existierende Reihenfolge angehängt.
+pub fn seed_default_faecher(conn: &Connection, schuljahr_id: i64) -> AppResult<SeedSummary> {
+    let bestehend: std::collections::HashSet<String> = {
+        let mut stmt = conn.prepare("SELECT name FROM fach WHERE schuljahr_id = ?1")?;
+        let rows = stmt.query_map(params![schuljahr_id], |r| r.get::<_, String>(0))?;
+        rows.collect::<Result<_, _>>()?
+    };
+
+    let mut sum = SeedSummary { neue_faecher: 0, uebersprungene_faecher: 0 };
+    for name in DEFAULT_FAECHER {
+        if bestehend.contains(*name) {
+            sum.uebersprungene_faecher += 1;
+            continue;
+        }
+        let r = next_reihenfolge_fach(conn, schuljahr_id)?;
+        conn.execute(
+            "INSERT INTO fach(schuljahr_id, name, reihenfolge, aktiv) VALUES (?1, ?2, ?3, 1)",
+            params![schuljahr_id, name, r],
+        )?;
+        sum.neue_faecher += 1;
+    }
+    Ok(sum)
+}
+
 pub fn upsert_fach(conn: &Connection, schuljahr_id: i64, name: &str, aktiv: bool) -> AppResult<i64> {
     if name.trim().is_empty() {
         return Err(crate::error::AppError::Config(
@@ -284,6 +332,31 @@ mod tests {
         let faecher = list_faecher(&conn, 1).unwrap();
         assert_eq!(faecher[0].id, id);
         assert!(faecher[0].aktiv);
+    }
+
+    #[test]
+    fn seed_default_faecher_legt_alle_zwoelf_an() {
+        let (_d, conn) = fresh_conn();
+        let sum = seed_default_faecher(&conn, 1).unwrap();
+        assert_eq!(sum.neue_faecher, 12);
+        assert_eq!(sum.uebersprungene_faecher, 0);
+        let faecher = list_faecher(&conn, 1).unwrap();
+        assert_eq!(faecher.len(), 12);
+        assert_eq!(faecher[0].name, "Mathematik");
+        assert_eq!(faecher[11].name, "Bildende Kunst");
+        assert!(faecher.iter().all(|f| f.aktiv));
+    }
+
+    #[test]
+    fn seed_default_faecher_idempotent_skippt_bestehende() {
+        let (_d, conn) = fresh_conn();
+        upsert_fach(&conn, 1, "Mathematik", true).unwrap();
+        let sum = seed_default_faecher(&conn, 1).unwrap();
+        assert_eq!(sum.neue_faecher, 11);
+        assert_eq!(sum.uebersprungene_faecher, 1);
+        let zweiter_lauf = seed_default_faecher(&conn, 1).unwrap();
+        assert_eq!(zweiter_lauf.neue_faecher, 0);
+        assert_eq!(zweiter_lauf.uebersprungene_faecher, 12);
     }
 
     #[test]

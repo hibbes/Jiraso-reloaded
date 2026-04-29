@@ -206,7 +206,7 @@ pub fn import_apply(
 
 // --- Katalog-Commands ---
 
-use crate::katalog::{self, Fach, Formulierung, Kategorie};
+use crate::katalog::{self, Fach, Formulierung, Kategorie, SeedSummary};
 
 #[tauri::command]
 pub fn katalog_faecher(schuljahr_id: i64, state: tauri::State<AppState>) -> AppResult<Vec<Fach>> {
@@ -234,6 +234,13 @@ pub fn katalog_fach_anlegen(schuljahr_id: i64, name: String, state: tauri::State
     require_admin(&state)?;
     let conn = open_db(&state)?;
     katalog::upsert_fach(&conn, schuljahr_id, &name, true)
+}
+
+#[tauri::command]
+pub fn katalog_seed_default_faecher(schuljahr_id: i64, state: tauri::State<AppState>) -> AppResult<SeedSummary> {
+    require_admin(&state)?;
+    let conn = open_db(&state)?;
+    katalog::seed_default_faecher(&conn, schuljahr_id)
 }
 
 #[tauri::command]

@@ -146,6 +146,11 @@ export const katalog = {
 
   fachAnlegen: (schuljahrId: number, name: string) =>
     invoke<number>('katalog_fach_anlegen', { schuljahrId, name }),
+  seedDefaultFaecher: (schuljahrId: number) =>
+    invoke<{ neue_faecher: number; uebersprungene_faecher: number }>(
+      'katalog_seed_default_faecher',
+      { schuljahrId }
+    ),
   kategorieAnlegen: (schuljahrId: number, name: string) =>
     invoke<number>('katalog_kategorie_anlegen', { schuljahrId, name }),
   formulierungAnlegen: (kategorieId: number, text: string) =>

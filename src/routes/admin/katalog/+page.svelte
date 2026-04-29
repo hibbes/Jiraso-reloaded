@@ -59,6 +59,18 @@
       await refreshFaecher();
     } catch (e) { fehler = String(e); }
   }
+
+  let seedHinweis = $state<string | null>(null);
+  async function seedDefaults() {
+    if (!aktivesSchuljahr) return;
+    fehler = null;
+    seedHinweis = null;
+    try {
+      const sum = await katalog.seedDefaultFaecher(aktivesSchuljahr.id);
+      seedHinweis = `${sum.neue_faecher} neue Fächer angelegt, ${sum.uebersprungene_faecher} übersprungen (existieren bereits).`;
+      await refreshFaecher();
+    } catch (e) { fehler = String(e); }
+  }
   async function kategorieAnlegen() {
     if (!aktivesSchuljahr || !neuName.trim()) return;
     fehler = null;
@@ -160,6 +172,12 @@
         </ul>
         <input placeholder="Neues Fach" bind:value={neuName} onkeydown={(e) => e.key === 'Enter' && fachAnlegen()} />
         <button onclick={fachAnlegen}>+ Anlegen</button>
+        <p class="seed-row">
+          <button onclick={seedDefaults} title="Legt die 12 Standard-Fächer aus dem ursprünglichen Jiraso an (Mathematik, Deutsch, Religion-Ethik, Erdkunde, Geschichte, Englisch, Französisch, Latein, Biologie, Sport, Musik, Bildende Kunst). Doppelte werden übersprungen.">
+            Standard-Fächer anlegen
+          </button>
+          {#if seedHinweis}<span class="hinweis">{seedHinweis}</span>{/if}
+        </p>
       </section>
     {/if}
 
@@ -229,4 +247,6 @@
   li.inaktiv span { color: #999; text-decoration: line-through; }
   li button { padding: 0.2rem 0.5rem; }
   input[type="text"], input:not([type]) { padding: 0.4rem; }
+  .seed-row { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed #ccc; display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; }
+  .hinweis { color: #060; font-size: 0.9rem; }
 </style>

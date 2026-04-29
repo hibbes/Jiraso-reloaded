@@ -94,6 +94,7 @@ pub fn run() {
             commands::katalog_kategorien,
             commands::katalog_formulierungen,
             commands::katalog_fach_anlegen,
+            commands::katalog_seed_default_faecher,
             commands::katalog_kategorie_anlegen,
             commands::katalog_formulierung_anlegen,
             commands::katalog_fach_aktiv,
