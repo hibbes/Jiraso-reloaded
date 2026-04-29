@@ -249,6 +249,7 @@ export type ModulZelle = {
   kategorie_name: string;
   kategorie_reihenfolge: number;
   formulierung_text: string | null;
+  formulierung_id: number | null;
   bewertet: boolean;
 };
 

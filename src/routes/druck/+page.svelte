@@ -6,21 +6,28 @@
   import {
     stammdaten,
     klassenraum,
+    katalog,
     uebersicht as uebersichtApi,
     type Schuljahr,
     type Klasse,
-    type SchuelerUebersicht,
-    type ModulZelle
+    type Fach,
+    type Kategorie,
+    type Formulierung,
+    type SchuelerUebersicht
   } from '$lib/api';
 
   let aktivesSchuljahr = $state<Schuljahr | null>(null);
   let klassen = $state<Klasse[]>([]);
   let aktiveKlasseId = $state<number | null>(null);
+  let faecher = $state<Fach[]>([]);
+  let kategorien = $state<Kategorie[]>([]);
+  let formulierungenByKat = $state<Record<number, Formulierung[]>>({});
   let uebersichten = $state<SchuelerUebersicht[]>([]);
   let auswahl = $state<Record<number, boolean>>({});
   let nurFertige = $state(false);
   let geladen = $state(false);
   let fehler = $state<string | null>(null);
+  let datumStr = $state(new Date().toLocaleDateString('de-DE'));
 
   onMount(async () => {
     if (!session.rolle) { goto('/login'); return; }
@@ -29,9 +36,12 @@
       aktivesSchuljahr = list.find(s => s.aktiv) ?? null;
       if (!aktivesSchuljahr) { fehler = 'Kein aktives Schuljahr.'; return; }
       klassen = await klassenraum.klassen(aktivesSchuljahr.id);
-      if (klassen.length > 0) {
-        aktiveKlasseId = klassen[0].id;
+      faecher = (await katalog.faecher(aktivesSchuljahr.id)).filter(f => f.aktiv);
+      kategorien = (await katalog.kategorien(aktivesSchuljahr.id)).filter(k => k.aktiv);
+      for (const k of kategorien) {
+        formulierungenByKat[k.id] = (await katalog.formulierungen(k.id)).filter(f => f.aktiv);
       }
+      if (klassen.length > 0) aktiveKlasseId = klassen[0].id;
     } catch (e) { fehler = String(e); }
   });
 
@@ -49,17 +59,15 @@
 
   $effect(() => { if (aktiveKlasseId) ladeUebersichten(); });
 
-  function gruppen(module: ModulZelle[]) {
-    const result: Array<{ fach_id: number; fach_name: string; zellen: ModulZelle[] }> = [];
-    for (const m of module) {
-      let g = result.find(r => r.fach_id === m.fach_id);
-      if (!g) {
-        g = { fach_id: m.fach_id, fach_name: m.fach_name, zellen: [] };
-        result.push(g);
+  // Set aller (formulierung_id × fach_id)-Paare, die für einen Schüler gewählt sind
+  function gewaehlt(u: SchuelerUebersicht): Set<string> {
+    const set = new Set<string>();
+    for (const m of u.module) {
+      if (m.formulierung_id != null) {
+        set.add(`${m.formulierung_id}:${m.fach_id}`);
       }
-      g.zellen.push(m);
     }
-    return result;
+    return set;
   }
 
   const sichtbar = $derived(uebersichten.filter(u => {
@@ -74,6 +82,8 @@
     for (const u of uebersichten) auswahl[u.schueler_id] = u.bewertete_module === u.gesamt_module;
   }
   function drucken() { window.print(); }
+
+  const aktiveKlasse = $derived(klassen.find(k => k.id === aktiveKlasseId) ?? null);
 </script>
 
 <main class="container no-print">
@@ -97,7 +107,9 @@
           {/each}
         </select>
       </label>
-
+      <label>Datum:
+        <input type="text" bind:value={datumStr} placeholder="29.04.2026" />
+      </label>
       <label class="toggle">
         <input type="checkbox" bind:checked={nurFertige} />
         Nur fertige anzeigen
@@ -125,76 +137,100 @@
       </section>
 
       <div class="druck-row">
-        <p class="zaehler">
-          {sichtbar.length} von {uebersichten.length} Schüler:innen ausgewählt
-        </p>
+        <p class="zaehler">{sichtbar.length} von {uebersichten.length} ausgewählt</p>
         <button class="druck" onclick={drucken} disabled={sichtbar.length === 0}>
           🖨️ Drucken / als PDF speichern
         </button>
         <p class="pdf-hinweis">
           Im Druck-Dialog „Microsoft Print to PDF" oder „Als PDF speichern" auswählen.
+          Eine Seite pro Schüler:in.
         </p>
       </div>
-
-      <section class="vorschau">
-        <h2>Vorschau</h2>
-        <p class="vorschau-hinweis">So sieht jeder ausgedruckte Bogen aus (gekürzte Anzeige):</p>
-      </section>
     {:else if geladen && uebersichten.length === 0}
       <p class="leer">Keine Schüler:innen in dieser Klasse.</p>
     {/if}
   {/if}
 </main>
 
-<!-- Druck-Bereich: jede Schülerin/jeder Schüler eine A4-Seite -->
+<!-- Druck-Bereich: jede Schülerin/jeder Schüler eine A4-Seite im Original-Layout -->
 <div class="druck-bereich">
   {#each sichtbar as u (u.schueler_id)}
-    <article class="zeugnis-seite">
-      <div class="kopf">
-        <h2>{u.vorname} {u.nachname}</h2>
-        <p class="kopf-meta">
-          Klasse <strong>{u.klasse_name}</strong>
-          · Schuljahr <strong>{u.schuljahr_bezeichnung}</strong>
-        </p>
-      </div>
+    {@const auswahlSet = gewaehlt(u)}
+    <article class="bogen">
+      <header class="bogen-kopf">
+        <div class="schule">
+          <strong>Schiller-Gymnasium</strong><br />
+          Offenburg
+        </div>
+        <div class="titel">
+          <div class="titel-haupt">Allgemeine Beurteilung</div>
+          <div class="titel-name">{u.vorname} {u.nachname}</div>
+        </div>
+        <div class="schuljahr-klasse">
+          Schuljahr {u.schuljahr_bezeichnung}<br />
+          Klasse: {u.klasse_name}
+        </div>
+      </header>
 
-      {#each gruppen(u.module) as g (g.fach_id)}
-        <section class="fach">
-          <h3>{g.fach_name}</h3>
-          <dl>
-            {#each g.zellen as z (`${z.fach_id}-${z.kategorie_id}`)}
-              <dt>{z.kategorie_name}</dt>
-              <dd class:keine-angabe={z.bewertet && !z.formulierung_text} class:offen={!z.bewertet}>
-                {#if z.formulierung_text}
-                  {z.formulierung_text}
-                {:else if z.bewertet}
-                  — keine Angabe —
-                {:else}
-                  ····················
-                {/if}
-              </dd>
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th class="kat-spalte"></th>
+            <th class="form-spalte"></th>
+            {#each faecher as f (f.id)}
+              <th class="fach-spalte"><span class="fach-name">{f.name}</span></th>
             {/each}
-          </dl>
-        </section>
-      {/each}
+          </tr>
+        </thead>
+        <tbody>
+          {#each kategorien as k (k.id)}
+            {@const forms = formulierungenByKat[k.id] ?? []}
+            {#each forms as form, i (form.id)}
+              <tr>
+                {#if i === 0}
+                  <th class="kat-name" rowspan={forms.length}>{k.name}</th>
+                {/if}
+                <td class="form-text">{form.text}</td>
+                {#each faecher as f (f.id)}
+                  <td class="kreuz">
+                    {#if auswahlSet.has(`${form.id}:${f.id}`)}X{/if}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          {/each}
+        </tbody>
+      </table>
 
-      {#if u.bemerkung}
-        <section class="bemerkung">
-          <h3>Bemerkung</h3>
-          <p>{u.bemerkung}</p>
-        </section>
-      {/if}
+      <section class="bemerkung">
+        <div class="bem-titel">zusätzliche Bemerkungen:</div>
+        <div class="bem-text">{u.bemerkung ?? ''}</div>
+      </section>
+
+      <footer class="bogen-fuss">
+        <div class="datum-zeile">
+          <span>Offenburg, den {datumStr}</span>
+          <span class="unterschrift-linie">&nbsp;</span>
+          <span class="unterschrift-linie">&nbsp;</span>
+        </div>
+        <div class="rolle-zeile">
+          <span></span>
+          <span class="rolle">Klassenlehrer/in</span>
+          <span class="rolle">Gesehen! Erziehungsberechtigte/r</span>
+        </div>
+      </footer>
     </article>
   {/each}
 </div>
 
 <style>
+  /* Kontroll-UI */
   .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem; }
   header { display: flex; justify-content: space-between; align-items: center; }
   .error { background: #fee; color: #900; padding: 1rem; border-radius: 4px; }
   .meta { color: #555; }
   .controls { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; margin: 1rem 0 1.5rem; }
-  .controls select { padding: 0.4rem; min-width: 150px; margin-left: 0.4rem; }
+  .controls select, .controls input[type="text"] { padding: 0.4rem; margin-left: 0.4rem; }
   .toggle { display: flex; align-items: center; gap: 0.4rem; }
 
   .auswahl { background: #f7f8fa; padding: 1rem; border-radius: 6px; }
@@ -208,15 +244,9 @@
   .schueler-grid .status { color: #888; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
   .druck-row {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    flex-wrap: wrap;
-    margin: 1.5rem 0;
-    padding: 1rem;
-    background: #fff8de;
-    border: 1px solid #e0c060;
-    border-radius: 6px;
+    display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;
+    margin: 1.5rem 0; padding: 1rem; background: #fff8de;
+    border: 1px solid #e0c060; border-radius: 6px;
   }
   .druck { padding: 0.6rem 1.2rem; font-size: 1rem; background: var(--sg-petrol, #004058); color: white; border: 0; border-radius: 6px; cursor: pointer; }
   .druck:hover { background: #00567a; }
@@ -224,71 +254,133 @@
   .zaehler { margin: 0; color: #555; }
   .pdf-hinweis { margin: 0; flex-basis: 100%; font-size: 0.85rem; color: #666; }
 
-  .vorschau h2 { margin-top: 2rem; }
-  .vorschau-hinweis { color: #666; font-size: 0.9rem; }
-
-  .druck-bereich { display: none; }
   .leer { color: #999; font-style: italic; }
 
-  /* Vorschau-Modus: zeige die ersten paar zeugnis-seiten klein gestapelt */
+  /* Bogen — Original-Matrix-Layout (Floskel × Fach) */
+  .druck-bereich { display: block; max-width: 770px; margin: 0 auto; padding-bottom: 4rem; }
+
   @media screen {
-    .druck-bereich {
-      display: block;
-      max-width: 760px;
-      margin: 0 auto;
-      padding-bottom: 4rem;
-    }
-    .zeugnis-seite {
+    .bogen {
       background: white;
       box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-      padding: 2rem 2.4rem;
+      padding: 1.4rem 1.6rem;
       margin-bottom: 1.5rem;
       border-radius: 4px;
     }
   }
 
-  .kopf {
-    border-bottom: 2px solid #333;
-    padding-bottom: 0.6rem;
-    margin-bottom: 1.2rem;
+  .bogen-kopf {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: start;
+    gap: 0.8rem;
+    margin-bottom: 0.6rem;
   }
-  .kopf h2 { margin: 0; }
-  .kopf-meta { color: #444; margin: 0.3rem 0 0; font-size: 0.95rem; }
+  .schule { font-size: 0.95rem; line-height: 1.25; }
+  .schule strong { font-size: 1rem; }
+  .titel { text-align: center; }
+  .titel-haupt { font-weight: 600; font-size: 1rem; margin-bottom: 0.3rem; }
+  .titel-name { font-size: 1.05rem; font-weight: 500; border-bottom: 1px solid #000; padding-bottom: 0.15rem; min-width: 12rem; display: inline-block; }
+  .schuljahr-klasse { font-size: 0.9rem; line-height: 1.4; text-align: right; }
 
-  .fach { margin-bottom: 1.4rem; break-inside: avoid; }
-  .fach h3 {
-    margin: 0 0 0.3rem;
-    font-size: 1.05rem;
-    border-bottom: 1px solid #999;
-    padding-bottom: 0.15rem;
+  .matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    table-layout: fixed;
   }
-  dl { margin: 0; display: grid; grid-template-columns: 12rem 1fr; gap: 0.25rem 1rem; }
-  dt { font-weight: 600; color: #333; }
-  dd { margin: 0; }
-  dd.keine-angabe { color: #777; font-style: italic; }
-  dd.offen { color: #aaa; letter-spacing: 0.1em; }
+  .matrix th, .matrix td {
+    border: 1px solid #444;
+    padding: 0.15rem 0.3rem;
+  }
+  .matrix thead tr { height: 5.4rem; }
+  .matrix .kat-spalte { width: 4.5rem; border: 0; }
+  .matrix .form-spalte { width: auto; border: 0; }
+  .matrix .fach-spalte {
+    width: 1.3rem;
+    padding: 0;
+    vertical-align: bottom;
+    border-bottom: 1px solid #444;
+    border-top: 1px solid #444;
+  }
+  .matrix .fach-name {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    display: inline-block;
+    padding: 0.3rem 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .matrix .kat-name {
+    background: #f0f0f0;
+    font-weight: 600;
+    text-align: left;
+    vertical-align: middle;
+    width: 4.5rem;
+    font-size: 0.78rem;
+    line-height: 1.15;
+  }
+  .matrix .form-text {
+    text-align: left;
+    line-height: 1.2;
+  }
+  .matrix .kreuz {
+    text-align: center;
+    font-weight: 600;
+    width: 1.3rem;
+    padding: 0;
+  }
 
-  .bemerkung { margin-top: 1.4rem; padding-top: 0.6rem; border-top: 1px solid #999; break-inside: avoid; }
-  .bemerkung h3 {
-    margin: 0 0 0.3rem;
-    font-size: 1.05rem;
+  .bemerkung {
+    margin-top: 0.6rem;
+    border: 1px solid #444;
+    padding: 0.3rem 0.5rem;
   }
-  .bemerkung p { margin: 0; white-space: pre-wrap; }
+  .bem-titel { font-size: 0.8rem; color: #333; margin-bottom: 0.2rem; }
+  .bem-text {
+    min-height: 4.5rem;
+    white-space: pre-wrap;
+    font-size: 0.85rem;
+    line-height: 1.35;
+  }
+
+  .bogen-fuss {
+    margin-top: 0.8rem;
+    font-size: 0.8rem;
+  }
+  .datum-zeile { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; align-items: end; }
+  .unterschrift-linie {
+    border-bottom: 1px solid #444;
+    height: 1.1rem;
+  }
+  .rolle-zeile {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.6rem;
+    margin-top: 0.15rem;
+    color: #555;
+    font-size: 0.72rem;
+  }
+  .rolle { text-align: center; }
 
   @media print {
-    @page { size: A4 portrait; margin: 1.6cm 1.8cm; }
+    @page { size: A4 portrait; margin: 1.2cm 1.4cm; }
     .no-print { display: none !important; }
     body { background: white; color: black; }
-    .druck-bereich { display: block; }
-    .zeugnis-seite {
+    .druck-bereich { max-width: none; padding: 0; }
+    .bogen {
       page-break-after: always;
       box-shadow: none;
       padding: 0;
       margin: 0;
       border-radius: 0;
     }
-    .zeugnis-seite:last-child { page-break-after: auto; }
-    dt { color: black; }
-    .fach h3, .bemerkung h3, .kopf { border-color: black; }
+    .bogen:last-child { page-break-after: auto; }
+    .matrix { font-size: 9pt; }
+    .matrix .fach-name { font-size: 9pt; }
+    .matrix .kat-name { background: #eee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bem-titel { font-size: 9pt; }
+    .bem-text { font-size: 10pt; }
   }
 </style>

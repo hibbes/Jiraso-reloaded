@@ -19,6 +19,7 @@ pub struct ModulZelle {
     /// `None` wenn entweder explizit "Keine Angabe" gespeichert wurde
     /// oder die Zelle noch nie bewertet wurde — Unterschied im `bewertet`-Flag.
     pub formulierung_text: Option<String>,
+    pub formulierung_id: Option<i64>,
     pub bewertet: bool,
 }
 
@@ -63,7 +64,7 @@ pub fn schueler_uebersicht(conn: &Connection, schueler_id: i64) -> AppResult<Sch
         "SELECT
              f.id, f.name, f.reihenfolge,
              k.id, k.name, k.reihenfolge,
-             fm.text,
+             fm.text, b.formulierung_id,
              b.geaendert_am
          FROM fach f
          JOIN kategorie k ON k.schuljahr_id = f.schuljahr_id AND k.aktiv = 1
@@ -75,7 +76,7 @@ pub fn schueler_uebersicht(conn: &Connection, schueler_id: i64) -> AppResult<Sch
     )?;
 
     let rows = stmt.query_map(params![schueler_id, schuljahr_id], |r| {
-        let geaendert: Option<String> = r.get(7)?;
+        let geaendert: Option<String> = r.get(8)?;
         Ok(ModulZelle {
             fach_id: r.get(0)?,
             fach_name: r.get(1)?,
@@ -84,6 +85,7 @@ pub fn schueler_uebersicht(conn: &Connection, schueler_id: i64) -> AppResult<Sch
             kategorie_name: r.get(4)?,
             kategorie_reihenfolge: r.get(5)?,
             formulierung_text: r.get(6)?,
+            formulierung_id: r.get(7)?,
             bewertet: geaendert.is_some(),
         })
     })?;
