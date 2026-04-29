@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { celebration } from './celebration.svelte';
+  import { celebration } from './celebration.svelte.ts';
   import { onDestroy } from 'svelte';
 
   let canvas: HTMLCanvasElement | undefined = $state();
