@@ -161,5 +161,12 @@ Arbeitspakete:
 
 ## Lizenz
 
-Interne Verwendung am Schiller-Gymnasium Offenburg. Fragen an den
-Autor per GitHub-Issue.
+[MIT License](./LICENSE) — frei nutzbar, modifizierbar, weiter­verteilbar.
+
+**Ausnahme:** `static/schiller_logo.png` ist Eigentum des
+Schiller-Gymnasiums Offenburg, alle Rechte vorbehalten. Forks für
+andere Schulen müssen das Logo durch ihr eigenes ersetzen, bevor
+weiterverteilt wird.
+
+Fragen, Bug-Reports und Pull-Requests willkommen über das
+[GitHub-Issue-Tracker](https://github.com/hibbes/Jiraso-reloaded/issues).
