@@ -618,7 +618,7 @@
         {#if klasseFertig && wurdeGefeiert()}
           ✓ Klasse abgeschlossen
         {:else if klasseFertig}
-          ✨ Fertig — Sternenregen!
+          ✨ Fertig
         {:else}
           Klasse fertig
         {/if}
