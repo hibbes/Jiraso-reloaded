@@ -1,6 +1,6 @@
 <script lang="ts">
   import { bugReport, type IssueResponse } from '$lib/api';
-  import { celebration } from '$lib/celebration.svelte.ts';
+  import { celebration } from '$lib/celebration.svelte';
 
   let offen = $state(false);
   let titel = $state('');
