@@ -270,6 +270,41 @@ pub fn set(conn: &mut Connection, u: BewertungUpdate) -> AppResult<SetResult> {
     Ok(SetResult::Ok { neuer_stand: ts })
 }
 
+/// Loescht eine einzelne Bewertungs-Zelle ganz.
+/// Anders als "keine Angabe" (formulierung_id=NULL, geaendert_am gesetzt)
+/// fuehrt das dazu, dass die Zelle wieder als "noch nicht befasst" gilt.
+/// Idempotent: wenn die Zelle nicht existiert, kein Fehler.
+pub fn delete_zelle(
+    conn: &Connection,
+    schueler_id: i64,
+    fach_id: i64,
+    kategorie_id: i64,
+) -> AppResult<usize> {
+    let n = conn.execute(
+        "DELETE FROM bewertung WHERE schueler_id=?1 AND fach_id=?2 AND kategorie_id=?3",
+        params![schueler_id, fach_id, kategorie_id],
+    )?;
+    Ok(n)
+}
+
+/// Loescht alle Bewertungen einer (Klasse, Fach)-Kombi.
+/// Use-Case: Lehrkraft hat versehentlich in der falschen Klasse oder im
+/// falschen Fach gearbeitet und will den ganzen Eintrag verwerfen.
+/// Liefert Anzahl geloeschter Zellen.
+pub fn delete_klasse_fach(
+    conn: &Connection,
+    klasse_id: i64,
+    fach_id: i64,
+) -> AppResult<usize> {
+    let n = conn.execute(
+        "DELETE FROM bewertung
+         WHERE fach_id = ?2
+           AND schueler_id IN (SELECT id FROM schueler WHERE klasse_id = ?1)",
+        params![klasse_id, fach_id],
+    )?;
+    Ok(n)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,5 +563,64 @@ mod tests {
             }
             _ => panic!("erwartete Konflikt"),
         }
+    }
+
+    #[test]
+    fn delete_zelle_loescht_existierende_zeile() {
+        let (_d, conn) = seed();
+        conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id) VALUES (1, 1, 1, 1)",
+            [],
+        ).unwrap();
+        assert_eq!(matrix(&conn, 1, 1).unwrap().len(), 1);
+        let n = delete_zelle(&conn, 1, 1, 1).unwrap();
+        assert_eq!(n, 1);
+        assert!(matrix(&conn, 1, 1).unwrap().is_empty(), "Zelle ist weg");
+    }
+
+    #[test]
+    fn delete_zelle_idempotent_wenn_nicht_da() {
+        let (_d, conn) = seed();
+        let n = delete_zelle(&conn, 1, 1, 1).unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn delete_klasse_fach_loescht_alle_zellen_der_kombi() {
+        let (_d, conn) = seed();
+        // 2 SuS x 2 Kategorien in Mathe
+        for sid in [1i64, 2] {
+            for kid in [1i64, 2] {
+                conn.execute(
+                    "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id)
+                     VALUES (?1, 1, ?2, NULL)",
+                    params![sid, kid],
+                ).unwrap();
+            }
+        }
+        assert_eq!(matrix(&conn, 1, 1).unwrap().len(), 4);
+        let n = delete_klasse_fach(&conn, 1, 1).unwrap();
+        assert_eq!(n, 4);
+        assert!(matrix(&conn, 1, 1).unwrap().is_empty());
+    }
+
+    #[test]
+    fn delete_klasse_fach_laesst_andere_klassen_in_ruhe() {
+        let (_d, conn) = seed();
+        // Zweite Klasse + Schueler:in
+        conn.execute("INSERT INTO klasse(schuljahr_id, name) VALUES (1, '5b')", []).unwrap();
+        conn.execute("INSERT INTO schueler(klasse_id, vorname, nachname) VALUES (2, 'Cora', 'Citro')", []).unwrap();
+        // Bewertungen in beiden Klassen, Mathe
+        conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id) VALUES (1, 1, 1, 1)",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id) VALUES (3, 1, 1, 1)",
+            [],
+        ).unwrap();
+        let n = delete_klasse_fach(&conn, 1, 1).unwrap();
+        assert_eq!(n, 1, "nur 5a-Bewertung weg");
+        assert_eq!(matrix(&conn, 2, 1).unwrap().len(), 1, "5b unangetastet");
     }
 }

@@ -111,6 +111,8 @@ pub fn run() {
             commands::bewertung_letzter_editor,
             commands::bewertung_set,
             commands::bewertung_wuerfeln,
+            commands::bewertung_zelle_loeschen,
+            commands::bewertung_klasse_fach_loeschen,
             commands::bemerkung_get,
             commands::bemerkung_set,
             commands::klassenraum_klassen,

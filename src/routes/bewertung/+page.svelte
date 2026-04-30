@@ -267,6 +267,47 @@
     fertigToastTimer = setTimeout(() => { fertigToast = null; }, 3000);
   }
 
+  let resetLaufend = $state(false);
+  async function klasseFachZuruecksetzen() {
+    if (!aktiveKlasse || !aktivesFach) return;
+    const ok = await tauriConfirm(
+      `ALLE Bewertungen für ${aktiveKlasse.name} – ${aktivesFach.name} loeschen?\n\nNutzlich, falls aus Versehen in der falschen Klasse oder im falschen Fach gearbeitet wurde. Diese Aktion ist nicht ruckgangig zu machen, betrifft aber NUR diese Klasse+Fach-Kombination.`,
+      { title: 'Klasse + Fach zurücksetzen', kind: 'warning' }
+    );
+    if (!ok) return;
+    resetLaufend = true;
+    fehler = null;
+    try {
+      const n = await bewertungApi.klasseFachLoeschen(aktiveKlasse.id, aktivesFach.id);
+      zeigeFertigToast(`🗑 ${n} Bewertungen geloescht.`);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(`klasse-fertig:${aktiveKlasse.id}:${aktivesFach.id}`);
+      }
+      await ladeKlasseUndFach();
+    } catch (e) {
+      fehler = String(e);
+    } finally {
+      resetLaufend = false;
+    }
+  }
+
+  // Einzelne Zelle wieder auf "noch nicht befasst" setzen (DELETE statt
+  // formulierung_id=NULL, damit Bullet wieder ○ wird).
+  async function zelleZuruecksetzen(s: SchuelerMini, k: Kategorie) {
+    if (!aktivesFach) return;
+    const ck = key(s.id, k.id);
+    const before = cells[ck];
+    if (!before || before.geaendert_am === null) return;
+    cells[ck] = { ...before, status: 'saving' };
+    try {
+      await bewertungApi.zelleLoeschen(s.id, aktivesFach.id, k.id);
+      cells[ck] = { formulierung_id: null, geaendert_am: null, editor_kuerzel: null, status: 'idle' };
+    } catch (e) {
+      cells[ck] = { ...before, status: 'idle' };
+      fehler = String(e);
+    }
+  }
+
   let wuerfelLaufend = $state(false);
   async function klasseWuerfeln() {
     if (!aktiveKlasse) return;
@@ -626,6 +667,16 @@
       <span class="fertig-hinweis">
         Bewertungen werden automatisch gespeichert, sobald du eine Auswahl triffst.
       </span>
+      {#if session.rolle === 'klassenlehrer' || session.rolle === 'administrator'}
+        <button
+          class="reset-button"
+          onclick={klasseFachZuruecksetzen}
+          disabled={!aktiveKlasse || !aktivesFach || resetLaufend}
+          title="Alle Bewertungen für diese Klasse + dieses Fach loeschen — nutzlich falls in der falschen Klasse/Fach gearbeitet wurde"
+        >
+          {resetLaufend ? '🗑 loesche …' : '🗑 Klasse + Fach zurücksetzen'}
+        </button>
+      {/if}
       {#if session.rolle === 'administrator'}
         <button
           class="wuerfel-button"
@@ -705,7 +756,14 @@
                 <header>
                   <span class="kat-num">{ki + 1}</span>
                   <h4>{k.name}</h4>
-                  {#if c.geaendert_am !== null}<span class="kat-check">✓</span>{/if}
+                  {#if c.geaendert_am !== null}
+                    <span class="kat-check">✓</span>
+                    <button
+                      class="kat-reset"
+                      onclick={(ev) => { ev.stopPropagation(); zelleZuruecksetzen(fokusSchueler!, k); }}
+                      title="Diese Bewertung ganz löschen (Zelle wird wieder ○ unbearbeitet)"
+                    >↺</button>
+                  {/if}
                   <span class="kat-status">{statusIcon(c.status)}</span>
                 </header>
                 <div class="pills">
@@ -1120,7 +1178,6 @@
     border: 1px solid #c0e0a0;
   }
   .wuerfel-button {
-    margin-left: auto;
     padding: 0.4rem 0.9rem;
     border-radius: 6px;
     border: 1px dashed #b0a060;
@@ -1131,6 +1188,20 @@
   }
   .wuerfel-button:hover { background: #fff2b8; }
   .wuerfel-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .reset-button {
+    margin-left: auto;
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    border: 1px dashed #b07060;
+    background: #fdecec;
+    color: #7a2a1a;
+    cursor: pointer;
+    font-size: 0.88rem;
+  }
+  .reset-button:hover { background: #fbd5d5; }
+  .reset-button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .reset-button + .wuerfel-button { margin-left: 0.4rem; }
 
   /* Modus-Toggle */
   .modus-row { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
@@ -1249,6 +1320,22 @@
   }
   .kat-karte.aktiv .kat-num { background: var(--sg-petrol, #004058); color: white; }
   .kat-check { color: #060; font-weight: 600; }
+  .kat-reset {
+    border: 1px solid var(--sg-border, #cfd6dd);
+    background: transparent;
+    color: var(--sg-meta, #666);
+    cursor: pointer;
+    border-radius: 50%;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0;
+  }
+  .kat-reset:hover { background: #fdecec; color: #7a2a1a; border-color: #b07060; }
   .kat-status { color: #666; font-size: 0.85em; }
   .kat-hint { color: #888; font-size: 0.78rem; margin-left: auto; }
 

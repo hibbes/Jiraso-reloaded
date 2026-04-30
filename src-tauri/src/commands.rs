@@ -369,6 +369,32 @@ pub fn bewertung_wuerfeln(klasse_id: i64, state: tauri::State<AppState>) -> AppR
     bewertung::wuerfle_klasse(&mut conn, klasse_id, 0.1, seed)
 }
 
+/// Loescht eine einzelne Bewertungs-Zelle. Anders als "keine Angabe"
+/// (formulierung_id=NULL, geaendert_am gesetzt) wird die Zeile
+/// physisch entfernt und gilt wieder als "noch nicht befasst".
+#[tauri::command]
+pub fn bewertung_zelle_loeschen(
+    schueler_id: i64, fach_id: i64, kategorie_id: i64,
+    state: tauri::State<AppState>,
+) -> AppResult<usize> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    bewertung::delete_zelle(&conn, schueler_id, fach_id, kategorie_id)
+}
+
+/// Loescht alle Bewertungen einer (Klasse, Fach)-Kombi. Use-Case:
+/// versehentlich falsche Klasse/Fach gewaehlt und alles verwerfen.
+/// Klassenlehrer:in oder Admin.
+#[tauri::command]
+pub fn bewertung_klasse_fach_loeschen(
+    klasse_id: i64, fach_id: i64,
+    state: tauri::State<AppState>,
+) -> AppResult<usize> {
+    require_klassenlehrer_oder_admin(&state)?;
+    let conn = open_db(&state)?;
+    bewertung::delete_klasse_fach(&conn, klasse_id, fach_id)
+}
+
 #[tauri::command]
 pub fn bemerkung_get(schueler_id: i64, state: tauri::State<AppState>) -> AppResult<Option<(String, String, Option<String>)>> {
     require_klassenlehrer_oder_admin(&state)?;

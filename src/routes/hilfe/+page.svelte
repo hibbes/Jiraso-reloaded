@@ -13,6 +13,7 @@
     { id: 'tastatur',         titel: 'Tastatur-Workflow (Panel-Modus)' },
     { id: 'bemerkung',        titel: 'Bemerkung schreiben (nur Klassenlehrer:in)' },
     { id: 'kuerzel',          titel: 'Mein Kürzel — was ist das?' },
+    { id: 'zuruecksetzen',    titel: 'Falsche Klasse / falsches Fach — wie zurücksetzen?' },
     { id: 'konflikt',         titel: 'Konflikt: zwei haben gleichzeitig editiert' },
     { id: 'uebersicht',       titel: 'Wer ist schon fertig? (Übersicht)' },
     { id: 'drucken',          titel: 'Drucken & PDF speichern' },
@@ -204,6 +205,38 @@
       Das Kürzel kannst du später jederzeit per Klick auf das Kürzel-Pill
       oben rechts in der Bewertungs-Maske ändern. Es bleibt pro Browser
       gespeichert.
+    </p>
+  </article>
+
+  <article id="zuruecksetzen">
+    <h2>6a. Falsche Klasse / falsches Fach — wie zurücksetzen?</h2>
+    <p>
+      Zwei Wege, je nach Schaden:
+    </p>
+    <ul>
+      <li>
+        <strong>Eine einzelne Bewertung loeschen</strong> — im Panel-Modus
+        zeigt jede bereits bewertete Kategorie-Karte rechts oben ein
+        kleines <kbd>↺</kbd>. Klick darauf macht die Zelle wieder
+        <kbd>○ unbearbeitet</kbd>. Wichtig: das ist NICHT „keine Angabe"
+        (das wäre die <kbd>0</kbd>-Pille und zählt als bewertet),
+        sondern Ruecksetzen auf den Ausgangszustand.
+      </li>
+      <li>
+        <strong>Klasse + Fach komplett zurücksetzen</strong> — oben in der
+        Werkzeug-Leiste neben dem Würfel-Knopf gibt es bei Klassenlehrer:in
+        und Admin einen 🗑-Knopf „Klasse + Fach zurücksetzen". Loescht
+        alle Bewertungen dieser (Klasse, Fach)-Kombi. Use-Case: man hat
+        aus Versehen in der falschen Klasse oder im falschen Fach
+        angefangen. Andere Klassen + andere Fächer bleiben unangetastet.
+      </li>
+    </ul>
+    <p class="hinweis">
+      Beide Aktionen wirken sofort und sind nicht ruckgangig zu machen.
+      Es gibt aber einen taeglichen Backup neben der Datenbank
+      (<code>data/backups/jiraso-YYYY-MM-DD.db</code>) — falls etwas
+      doch schiefgeht, kann die Schul-Admin den vorherigen Stand
+      wiederherstellen.
     </p>
   </article>
 

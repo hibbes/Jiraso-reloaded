@@ -217,7 +217,11 @@ export const bewertung = {
   set: (update: BewertungUpdate) =>
     invoke<SetResult>('bewertung_set', { update }),
   wuerfeln: (klasseId: number) =>
-    invoke<[number, number]>('bewertung_wuerfeln', { klasseId })
+    invoke<[number, number]>('bewertung_wuerfeln', { klasseId }),
+  zelleLoeschen: (schuelerId: number, fachId: number, kategorieId: number) =>
+    invoke<number>('bewertung_zelle_loeschen', { schuelerId, fachId, kategorieId }),
+  klasseFachLoeschen: (klasseId: number, fachId: number) =>
+    invoke<number>('bewertung_klasse_fach_loeschen', { klasseId, fachId })
 };
 
 // --- Bemerkung ---
