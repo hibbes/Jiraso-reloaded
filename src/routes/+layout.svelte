@@ -5,8 +5,31 @@
   import { schulname, aktuellesSchuljahr, currentRole, logout } from '$lib/api';
   import { goto } from '$app/navigation';
   import '../app.css';
+  import BugButton from '$lib/BugButton.svelte';
+  import Celebration from '$lib/Celebration.svelte';
+
+  let theme = $state<'light' | 'dark'>('light');
+
+  function applyTheme(t: 'light' | 'dark') {
+    theme = t;
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.theme = t;
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('jiraso-theme', t);
+    }
+  }
+  function toggleTheme() { applyTheme(theme === 'dark' ? 'light' : 'dark'); }
 
   onMount(async () => {
+    const saved = localStorage.getItem('jiraso-theme');
+    if (saved === 'dark' || saved === 'light') {
+      applyTheme(saved);
+    } else if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+      applyTheme('dark');
+    } else {
+      applyTheme('light');
+    }
     session.schule = await schulname();
     session.schuljahr = await aktuellesSchuljahr();
     session.rolle = await currentRole();
@@ -30,6 +53,14 @@
     </div>
   </div>
   <div class="header-right">
+    <button
+      class="btn-theme"
+      onclick={toggleTheme}
+      title={theme === 'dark' ? 'Hell-Modus' : 'Dark-Modus'}
+      aria-label={theme === 'dark' ? 'Hell-Modus' : 'Dark-Modus'}
+    >
+      {theme === 'dark' ? '☀' : '☾'}
+    </button>
     {#if session.rolle}
       <span class="badge role-{session.rolle}">{session.rolle}</span>
       <button class="btn-logout" onclick={handleLogout}>Abmelden</button>
@@ -48,6 +79,9 @@
   <span class="sep">·</span>
   <span class="mono">schiller-offenburg.de</span>
 </footer>
+
+<BugButton />
+<Celebration />
 
 <style>
   .app-header {
@@ -116,6 +150,20 @@
     border-color: #fff;
     box-shadow: none;
   }
+  .btn-theme {
+    background: transparent;
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    padding: 0.3rem 0.7rem;
+    font-size: 1rem;
+    line-height: 1;
+    border-radius: 999px;
+  }
+  .btn-theme:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: #fff;
+    box-shadow: none;
+  }
 
   .app-main {
     max-width: 1280px;
@@ -135,4 +183,15 @@
     border-top: 1px solid var(--sg-border);
   }
   .sep { opacity: 0.5; }
+
+  /* Im Druck-Modus: globalen App-Header + Footer + Bug-Button verstecken,
+     nur die Druck-Inhalte (Bogen) bleiben sichtbar. */
+  @media print {
+    :global(.app-header),
+    :global(.app-footer),
+    :global(.bug-button) {
+      display: none !important;
+    }
+    :global(.app-main) { padding: 0 !important; margin: 0 !important; }
+  }
 </style>

@@ -17,6 +17,12 @@ pub mod lock;
 pub mod backup;
 pub mod stammdaten;
 pub mod import;
+pub mod katalog;
+pub mod bewertung;
+pub mod bemerkung;
+pub mod uebersicht;
+pub mod goodies;
+pub mod bug_report;
 
 #[cfg(feature = "desktop")]
 pub mod commands;
@@ -71,8 +77,10 @@ pub fn run() {
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::login,
+            commands::login_fachlehrer,
             commands::logout,
             commands::current_role,
             commands::schulname,
@@ -85,6 +93,32 @@ pub fn run() {
             commands::schuljahr_aktivieren,
             commands::import_preview,
             commands::import_apply,
+            commands::katalog_faecher,
+            commands::katalog_kategorien,
+            commands::katalog_formulierungen,
+            commands::katalog_fach_anlegen,
+            commands::katalog_seed_default_faecher,
+            commands::katalog_seed_default_floskeln,
+            commands::katalog_kategorie_anlegen,
+            commands::katalog_formulierung_anlegen,
+            commands::katalog_fach_aktiv,
+            commands::katalog_kategorie_aktiv,
+            commands::katalog_formulierung_aktiv,
+            commands::katalog_fach_reihenfolge,
+            commands::katalog_kategorie_reihenfolge,
+            commands::katalog_formulierung_reihenfolge,
+            commands::bewertung_matrix,
+            commands::bewertung_letzter_editor,
+            commands::bewertung_set,
+            commands::bewertung_wuerfeln,
+            commands::bemerkung_get,
+            commands::bemerkung_set,
+            commands::klassenraum_klassen,
+            commands::klassenraum_schueler,
+            commands::uebersicht_schueler,
+            commands::uebersicht_klasse,
+            commands::goodies_zitat,
+            commands::bug_report_submit,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri-App konnte nicht starten");

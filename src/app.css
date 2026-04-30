@@ -38,6 +38,178 @@
   --sg-space-sm: 0.8rem;
   --sg-space-md: 1.2rem;
   --sg-space-lg: 1.8rem;
+
+  /* Surface-Tokens (werden im Dark-Mode ueberschrieben) */
+  --sg-surface:      #ffffff;
+  --sg-surface-alt:  #fafbfc;
+  --sg-input-bg:     #ffffff;
+}
+
+/* Dark Mode: gleicher Token-Satz, dunklere Werte. Aktiviert via
+   <html data-theme="dark"> (gesetzt vom Layout). */
+:root[data-theme="dark"] {
+  --sg-petrol:       #4dabd2;
+  --sg-petrol-hover: #6ec0e0;
+  --sg-petrol-light: #2d8db2;
+  --sg-gold:         #ffd566;
+  --sg-gold-soft:    rgba(255, 213, 102, 0.18);
+  --sg-bg-card:      #20232a;
+  --sg-bg-light:     #15171c;
+  --sg-border:       #353a44;
+  --sg-text:         #e8e8ec;
+  --sg-text-light:   #c0c0c8;
+  --sg-meta:         #909098;
+  --sg-meta-light:   #707078;
+  --sg-danger:       #d96080;
+  --sg-success:      #4caf7a;
+  --sg-shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --sg-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3);
+  --sg-surface:      #1d2027;
+  --sg-surface-alt:  #181b21;
+  --sg-input-bg:     #2a2e36;
+}
+
+:root[data-theme="dark"] body { background: var(--sg-bg-light); color: var(--sg-text); }
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  background: var(--sg-input-bg);
+  color: var(--sg-text);
+  border-color: var(--sg-border);
+}
+:root[data-theme="dark"] .card { background: var(--sg-surface); }
+
+/* ─────────────────────────────────────────────────────────────────
+   Dark-Mode-Overrides fuer hardgecodete Komponenten-Hintergruende.
+   Hoehere Spezifitaet als komponenten-eigene Scoped-Styles, damit
+   ohne Refactor jeder Komponente alle Light-Bg-Hardcodes verschwinden.
+   ───────────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] .zitat-banner {
+  background: linear-gradient(135deg, #2a2618 0%, #322a14 100%);
+  color: var(--sg-text);
+  border-color: var(--sg-border);
+}
+:root[data-theme="dark"] .zitat-banner * { color: var(--sg-text); }
+
+:root[data-theme="dark"] .lock-form,
+:root[data-theme="dark"] .lock-hilfe,
+:root[data-theme="dark"] .druck-row,
+:root[data-theme="dark"] .auswahl,
+:root[data-theme="dark"] .wuerfel-button,
+:root[data-theme="dark"] .fertig-button,
+:root[data-theme="dark"] .kat-karte,
+:root[data-theme="dark"] .pill,
+:root[data-theme="dark"] .modal-content,
+:root[data-theme="dark"] .cheat-modal,
+:root[data-theme="dark"] .bemerkungs-karte,
+:root[data-theme="dark"] .schueler-liste {
+  background: var(--sg-surface);
+  color: var(--sg-text);
+  border-color: var(--sg-border);
+}
+:root[data-theme="dark"] .lock-hilfe,
+:root[data-theme="dark"] .druck-row,
+:root[data-theme="dark"] .wuerfel-button {
+  background: var(--sg-gold-soft);
+  border-color: var(--sg-gold);
+  color: var(--sg-text);
+}
+
+:root[data-theme="dark"] .error {
+  background: rgba(217, 96, 128, 0.15);
+  color: var(--sg-danger);
+  border-color: var(--sg-danger);
+}
+:root[data-theme="dark"] .info,
+:root[data-theme="dark"] .fertig-toast {
+  background: rgba(76, 175, 122, 0.18);
+  color: var(--sg-success);
+  border-color: var(--sg-success);
+}
+:root[data-theme="dark"] .konflikt-banner,
+:root[data-theme="dark"] td.konflikt {
+  background: rgba(217, 96, 128, 0.18);
+  color: var(--sg-text);
+  border-color: var(--sg-danger);
+}
+:root[data-theme="dark"] td.keine-angabe {
+  background: var(--sg-surface-alt);
+  color: var(--sg-text-light);
+}
+
+/* Pill-Variante: Hover/Idle dunkler, gewaehlte Pills behalten ihre
+   Farbskala (gruen-rot via --pill-color). */
+:root[data-theme="dark"] .pill {
+  background: var(--sg-surface-alt);
+  color: var(--sg-text);
+}
+:root[data-theme="dark"] .pill:hover {
+  background: color-mix(in srgb, var(--sg-petrol) 15%, var(--sg-surface));
+}
+:root[data-theme="dark"] .pill.gewaehlt {
+  background: color-mix(in srgb, var(--pill-color) 28%, var(--sg-surface));
+  color: var(--sg-text);
+}
+
+/* Aktive Kategorie-Karte: dezenter Glow im Dark-Mode */
+:root[data-theme="dark"] .kat-karte.aktiv {
+  box-shadow: 0 0 0 2px var(--sg-petrol), 0 4px 16px rgba(77, 171, 210, 0.2);
+}
+:root[data-theme="dark"] .kat-karte.fertig {
+  background: color-mix(in srgb, var(--sg-success) 12%, var(--sg-surface));
+}
+
+/* Tabellen-Header (sticky thead) */
+:root[data-theme="dark"] thead th {
+  background: var(--sg-surface-alt);
+  color: var(--sg-petrol);
+  border-color: var(--sg-border);
+}
+:root[data-theme="dark"] table { color: var(--sg-text); }
+:root[data-theme="dark"] tr.fokus td {
+  background: color-mix(in srgb, var(--sg-gold) 10%, var(--sg-surface));
+}
+
+/* Schueler-Liste im Panel-Modus */
+:root[data-theme="dark"] .schueler-liste { background: var(--sg-surface); }
+:root[data-theme="dark"] .schueler-liste li button { color: var(--sg-text); }
+:root[data-theme="dark"] .schueler-liste li button:hover { background: var(--sg-surface-alt); }
+:root[data-theme="dark"] .schueler-liste li.aktiv button {
+  background: color-mix(in srgb, var(--sg-gold) 18%, var(--sg-surface));
+  color: var(--sg-text);
+}
+
+/* HUD oben im Panel */
+:root[data-theme="dark"] .hud {
+  background: var(--sg-surface-alt);
+  border-color: var(--sg-border);
+  color: var(--sg-text);
+}
+
+/* Cheat-Sheet-Overlay */
+:root[data-theme="dark"] .cheat-overlay { background: rgba(0, 0, 0, 0.7); }
+:root[data-theme="dark"] .cheat-modal { background: var(--sg-surface); color: var(--sg-text); }
+:root[data-theme="dark"] kbd {
+  background: var(--sg-surface-alt);
+  border-color: var(--sg-border);
+  color: var(--sg-text);
+}
+
+/* BugButton-Dialog */
+:root[data-theme="dark"] .bug-button-dialog,
+:root[data-theme="dark"] .dialog {
+  background: var(--sg-surface);
+  color: var(--sg-text);
+  border-color: var(--sg-border);
+}
+
+/* Admin-Page-Banner */
+:root[data-theme="dark"] .schueler-list li a:hover { background: var(--sg-surface-alt); }
+:root[data-theme="dark"] .schueler-list li a { border-color: var(--sg-border); color: var(--sg-text); }
+
+/* Brand-Mark im Header weniger grell */
+:root[data-theme="dark"] .brand-mark {
+  background: linear-gradient(135deg, #c4a040 0%, #a07020 100%);
 }
 
 /* Reset + Base */
@@ -178,3 +350,11 @@ label {
 .text-muted { color: var(--sg-meta); }
 .text-small { font-size: 0.85rem; }
 .mono { font-family: var(--sg-font-mono); }
+
+/* Volle Bildschirmbreite fuer breite Arbeitsansichten (Bewertungs-
+   Matrix auf 16:9-Monitoren). Wird vom Page-Code per .wide getoggelt. */
+.app-main.wide {
+  max-width: none !important;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}

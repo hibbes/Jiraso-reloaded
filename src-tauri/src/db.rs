@@ -6,11 +6,15 @@ use std::path::Path;
 
 static MIGRATIONS_001: &str = include_str!("migrations/001_initial.sql");
 static MIGRATIONS_002: &str = include_str!("migrations/002_schuljahr_aktiv.sql");
+static MIGRATIONS_003: &str = include_str!("migrations/003_bewertung_pk.sql");
+static MIGRATIONS_004: &str = include_str!("migrations/004_editor_kuerzel.sql");
 
 pub fn migrations() -> Migrations<'static> {
     Migrations::new(vec![
         M::up(MIGRATIONS_001),
         M::up(MIGRATIONS_002),
+        M::up(MIGRATIONS_003),
+        M::up(MIGRATIONS_004),
     ])
 }
 
@@ -113,5 +117,42 @@ mod tests {
             [], |r| r.get(0),
         ).unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn bewertung_pk_ist_schueler_fach_kategorie() {
+        let dir = tempdir().unwrap();
+        let conn = open(&dir.path().join("test.db")).unwrap();
+
+        conn.execute("INSERT INTO schuljahr(bezeichnung, aktiv) VALUES ('2025/26', 1)", []).unwrap();
+        conn.execute("INSERT INTO klasse(schuljahr_id, name) VALUES (1, '5a')", []).unwrap();
+        conn.execute("INSERT INTO schueler(klasse_id, vorname, nachname) VALUES (1, 'Anna', 'Apfel')", []).unwrap();
+        conn.execute("INSERT INTO fach(schuljahr_id, name, reihenfolge) VALUES (1, 'Mathe', 1)", []).unwrap();
+        conn.execute("INSERT INTO kategorie(schuljahr_id, name, reihenfolge) VALUES (1, 'Lernbereitschaft', 1)", []).unwrap();
+        conn.execute("INSERT INTO formulierung(kategorie_id, text, reihenfolge) VALUES (1, 'fleißig', 1)", []).unwrap();
+
+        // Erste Bewertung mit Formulierung
+        conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id) VALUES (1, 1, 1, 1)",
+            [],
+        ).unwrap();
+
+        // Zweite Bewertung mit identischem (schueler, fach, kategorie) muss scheitern
+        let err = conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id) VALUES (1, 1, 1, NULL)",
+            [],
+        );
+        assert!(err.is_err(), "Zweite Bewertung mit gleicher PK muss am UNIQUE scheitern");
+
+        // formulierung_id darf NULL sein
+        conn.execute(
+            "INSERT INTO formulierung(kategorie_id, text, reihenfolge) VALUES (1, 'mittelmäßig', 2)",
+            [],
+        ).unwrap();
+        conn.execute("INSERT INTO kategorie(schuljahr_id, name, reihenfolge) VALUES (1, 'Sorgfalt', 2)", []).unwrap();
+        conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id) VALUES (1, 1, 2, NULL)",
+            [],
+        ).unwrap();
     }
 }
