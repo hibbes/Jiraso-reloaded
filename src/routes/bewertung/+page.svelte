@@ -5,7 +5,7 @@
   import { confirm as tauriConfirm } from '@tauri-apps/plugin-dialog';
   import { session } from '$lib/session.svelte';
   import { kuerzelStore } from '$lib/kuerzel.svelte';
-  import { celebration } from '$lib/celebration.svelte';
+  import { celebration } from '$lib/celebration.svelte.ts';
   import {
     stammdaten,
     katalog,
