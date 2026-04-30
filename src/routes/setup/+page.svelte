@@ -3,7 +3,6 @@
   import { goto } from '$app/navigation';
   import { setupPasswoerter } from '$lib/api';
 
-  let fachlehrer = $state('');
   let klassenlehrer = $state('');
   let administrator = $state('');
   let fehler = $state<string | null>(null);
@@ -14,7 +13,7 @@
     fehler = null;
     laufend = true;
     try {
-      await setupPasswoerter(fachlehrer, klassenlehrer, administrator);
+      await setupPasswoerter(klassenlehrer, administrator);
       goto('/login');
     } catch (err) {
       fehler = String(err);
@@ -28,15 +27,16 @@
   <div class="card setup-card">
     <h1>Erste Einrichtung</h1>
     <p class="text-muted">
-      Bitte lege die drei Rollen-Passwörter fest (jeweils mindestens 8 Zeichen).
+      Bitte lege die zwei Rollen-Passwörter fest (jeweils mindestens 8 Zeichen).
       Gib sie danach persönlich an die jeweiligen Kolleg:innen weiter.
+    </p>
+    <p class="text-muted hint">
+      Fachlehrer:innen melden sich ohne Passwort an — der Schul-PC ist
+      ohnehin physisch zugriffsgeschützt, ein App-Passwort wäre Reibung
+      ohne Sicherheitsgewinn.
     </p>
 
     <form onsubmit={submit}>
-      <label>
-        <span class="label-row">Fachlehrer <span class="badge role-fachlehrer">fachlehrer</span></span>
-        <input type="password" bind:value={fachlehrer} minlength="8" required />
-      </label>
       <label>
         <span class="label-row">Klassenlehrer <span class="badge role-klassenlehrer">klassenlehrer</span></span>
         <input type="password" bind:value={klassenlehrer} minlength="8" required />
@@ -66,6 +66,14 @@
     width: 100%;
     max-width: 480px;
   }
+  .hint {
+    font-size: 0.88rem;
+    background: var(--sg-bg-card, #f4f6f8);
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    border-left: 3px solid var(--sg-petrol, #004058);
+    margin-top: 0.8rem;
+  }
   form {
     display: flex;
     flex-direction: column;
@@ -76,11 +84,6 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-  }
-  :global(.badge.role-fachlehrer) {
-    background: var(--sg-success);
-    color: #fff;
-    border-color: transparent;
   }
   :global(.badge.role-klassenlehrer) {
     background: var(--sg-gold);

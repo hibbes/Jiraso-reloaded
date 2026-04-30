@@ -112,18 +112,20 @@ pub fn needs_setup(state: tauri::State<AppState>) -> bool {
 #[tauri::command]
 pub fn setup_passwoerter(
     state: tauri::State<AppState>,
-    fachlehrer: String,
     klassenlehrer: String,
     administrator: String,
 ) -> AppResult<()> {
-    if fachlehrer.len() < 8 || klassenlehrer.len() < 8 || administrator.len() < 8 {
+    if klassenlehrer.len() < 8 || administrator.len() < 8 {
         return Err(crate::error::AppError::Config(
-            "Alle drei Passwörter müssen mindestens 8 Zeichen haben.".into(),
+            "Beide Passwörter müssen mindestens 8 Zeichen haben.".into(),
         ));
     }
 
     let mut cfg = state.config.lock().unwrap();
-    cfg.passwoerter.fachlehrer = auth::hash_password(&fachlehrer)?;
+    // Fachlehrer-Login ist passwortlos seit v0.1.x (login_fachlehrer ohne PW).
+    // Hash trotzdem leeren, damit verify_password nie matcht falls jemand
+    // versehentlich das alte fachlehrer-Passwort eintippt.
+    cfg.passwoerter.fachlehrer = String::new();
     cfg.passwoerter.klassenlehrer = auth::hash_password(&klassenlehrer)?;
     cfg.passwoerter.administrator = auth::hash_password(&administrator)?;
     config::save(&cfg, &state.config_path)?;

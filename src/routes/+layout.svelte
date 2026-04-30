@@ -53,6 +53,7 @@
     </div>
   </div>
   <div class="header-right">
+    <a href="/hilfe" class="btn-hilfe" title="Anleitung für Lehrkräfte">? Hilfe</a>
     <button
       class="btn-theme"
       onclick={toggleTheme}
@@ -163,6 +164,19 @@
     background: rgba(255, 255, 255, 0.12);
     border-color: #fff;
     box-shadow: none;
+  }
+  .btn-hilfe {
+    color: #fff;
+    text-decoration: none;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    padding: 0.32rem 0.8rem;
+    font-size: 0.86rem;
+    line-height: 1;
+    border-radius: 999px;
+  }
+  .btn-hilfe:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: #fff;
   }
 
   .app-main {

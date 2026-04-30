@@ -36,11 +36,10 @@ export async function needsSetup(): Promise<boolean> {
 }
 
 export async function setupPasswoerter(
-  fachlehrer: string,
   klassenlehrer: string,
   administrator: string
 ): Promise<void> {
-  return invoke<void>('setup_passwoerter', { fachlehrer, klassenlehrer, administrator });
+  return invoke<void>('setup_passwoerter', { klassenlehrer, administrator });
 }
 
 export function rechnerName(): string {
