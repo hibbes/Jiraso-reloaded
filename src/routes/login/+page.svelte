@@ -4,6 +4,16 @@
   import { login, loginFachlehrer, rechnerName, breakLockAdmin } from '$lib/api';
   import type { Rolle } from '$lib/api';
   import { session } from '$lib/session.svelte';
+  import { kuerzelStore } from '$lib/kuerzel.svelte';
+  import { onMount } from 'svelte';
+
+  // Sicherheitsnetz: falls die App ohne Logout geschlossen wurde (Crash,
+  // x-Knopf oben rechts), liegt das Kuerzel der vorigen Lehrkraft noch in
+  // localStorage. Beim erneuten Login-Aufruf wegwerfen, damit niemand
+  // versehentlich unter fremdem Kuerzel speichert.
+  onMount(() => {
+    kuerzelStore.clear();
+  });
 
   type RolleId = 'fachlehrer' | 'klassenlehrer' | 'administrator';
 

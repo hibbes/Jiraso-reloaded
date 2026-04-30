@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { session } from '$lib/session.svelte';
   import { schulname, aktuellesSchuljahr, currentRole, logout } from '$lib/api';
+  import { kuerzelStore } from '$lib/kuerzel.svelte';
   import { goto } from '$app/navigation';
   import '../app.css';
   import BugButton from '$lib/BugButton.svelte';
@@ -38,6 +39,11 @@
   async function handleLogout() {
     await logout();
     session.rolle = null;
+    // Kuerzel ist an die Person gebunden, nicht an den PC -- bei Abmeldung
+    // wegwerfen, damit die naechste Lehrkraft am gleichen Rechner explizit
+    // ihr eigenes Kuerzel setzen muss (und nicht aus Versehen unter fremdem
+    // Kuerzel speichert).
+    kuerzelStore.clear();
     goto('/login');
   }
 
