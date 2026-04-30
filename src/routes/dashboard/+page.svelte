@@ -22,12 +22,12 @@
     beschreibung: string;
     rollen: string[];
     icon: string;
-    tbd?: boolean;
+    href: string;
   };
 
-  const kacheln = $derived.by<(Kachel & { href?: string })[]>(() => {
+  const kacheln = $derived.by<Kachel[]>(() => {
     if (!session.rolle) return [];
-    const all: (Kachel & { href?: string })[] = [
+    const all: Kachel[] = [
       {
         titel: 'Bewertung eingeben',
         beschreibung: 'Matrix Schüler×Kategorie pro Fach, Bemerkung im Detail-Panel',
@@ -57,11 +57,11 @@
         href: '/admin/katalog',
       },
       {
-        titel: 'Datenverwaltung',
-        beschreibung: 'Schüler:innen importieren, Jahreswechsel',
+        titel: 'Stammdaten-Import',
+        beschreibung: 'Schüler:innen aus ASV-BW (XLSX/CSV), Schuljahr-Verwaltung',
         rollen: ['administrator'],
         icon: '📂',
-        tbd: true,
+        href: '/admin/stammdaten',
       },
     ];
     return all.filter((k) => k.rollen.includes(session.rolle!));
@@ -77,35 +77,13 @@
   </blockquote>
 {/if}
 
-<p class="intro text-muted">
-  Die Funktionen werden in den folgenden Plänen (2–5) schrittweise aktiviert.
-</p>
-
-{#if session.rolle === 'administrator'}
-  <a href="/admin/stammdaten" class="admin-tile">
-    <strong>Stammdaten-Import</strong>
-    <span>XLSX aus ASV-BW einspielen</span>
-  </a>
-{/if}
-
 <div class="grid">
   {#each kacheln as k}
-    {#if k.href}
-      <a href={k.href} class="card kachel">
-        <div class="kachel-icon" aria-hidden="true">{k.icon}</div>
-        <h3>{k.titel}</h3>
-        <p class="kachel-desc text-small text-muted">{k.beschreibung}</p>
-      </a>
-    {:else}
-      <div class="card kachel" class:disabled={k.tbd}>
-        <div class="kachel-icon" aria-hidden="true">{k.icon}</div>
-        <h3>{k.titel}</h3>
-        <p class="kachel-desc text-small text-muted">{k.beschreibung}</p>
-        {#if k.tbd}
-          <span class="badge badge-gold kachel-badge">in Planung</span>
-        {/if}
-      </div>
-    {/if}
+    <a href={k.href} class="card kachel">
+      <div class="kachel-icon" aria-hidden="true">{k.icon}</div>
+      <h3>{k.titel}</h3>
+      <p class="kachel-desc text-small text-muted">{k.beschreibung}</p>
+    </a>
   {/each}
 </div>
 
@@ -130,10 +108,6 @@
     font-size: 0.9rem;
     text-align: right;
   }
-  .intro {
-    margin-top: -0.4rem;
-    margin-bottom: 2rem;
-  }
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -143,9 +117,6 @@
     display: flex;
     flex-direction: column;
     min-height: 180px;
-  }
-  .kachel.disabled {
-    opacity: 0.85;
   }
   a.kachel {
     text-decoration: none;
@@ -165,33 +136,5 @@
   .kachel-desc {
     margin: 0;
     flex: 1;
-  }
-  .kachel-badge {
-    margin-top: 0.9rem;
-    align-self: flex-start;
-  }
-  .admin-tile {
-    display: inline-flex;
-    flex-direction: column;
-    padding: 1rem 1.4rem;
-    margin-bottom: 1.5rem;
-    background: var(--sg-bg-card);
-    border: 1px solid var(--sg-border);
-    border-radius: var(--sg-radius-md);
-    text-decoration: none;
-    color: var(--sg-text);
-    box-shadow: var(--sg-shadow-sm);
-    transition: box-shadow 0.15s ease;
-  }
-  .admin-tile:hover {
-    box-shadow: var(--sg-shadow-hover);
-  }
-  .admin-tile strong {
-    color: var(--sg-petrol);
-  }
-  .admin-tile span {
-    font-size: 0.9em;
-    color: var(--sg-meta);
-    margin-top: 0.2rem;
   }
 </style>
