@@ -159,17 +159,9 @@
     if (aktiveKategorieIndex < kategorien.length - 1) {
       aktiveKategorieIndex++;
     } else {
-      // Letzte Kategorie erledigt
-      if (session.rolle === 'klassenlehrer' || session.rolle === 'administrator') {
-        // Klassenlehrer-Mode: Cursor in die Bemerkung
-        if (bemerkungRef) {
-          bemerkungRef.focus();
-        }
-        // Kategorie-Index bleibt auf der letzten, falls Lehrer:in zurueckspringen will
-      } else {
-        // Fachlehrer-Mode: naechste:r Schueler:in
-        await naechsterSchueler();
-      }
+      // Letzte Kategorie erledigt: immer naechste:r Schueler:in, Kategorie 1.
+      // Bemerkung wird NICHT auto-fokussiert; nur per Maus-Klick erreichbar.
+      await naechsterSchueler();
     }
   }
 
@@ -216,13 +208,6 @@
     if (e.key === 'ArrowLeft') {
       if (aktiveKategorieIndex > 0) aktiveKategorieIndex--;
       e.preventDefault(); return;
-    }
-    if (e.key === 'b' || e.key === 'B') {
-      if ((session.rolle === 'klassenlehrer' || session.rolle === 'administrator') && bemerkungRef) {
-        bemerkungRef.focus();
-        e.preventDefault();
-      }
-      return;
     }
     if (e.key === '0' || e.key === '-') {
       selectKeineAngabe(); e.preventDefault(); return;
@@ -770,7 +755,7 @@
               <article class="bemerkungs-karte">
                 <header>
                   <h4>Bemerkung <span class="kat-status">{statusIcon(bemerkungStatus)}</span></h4>
-                  <span class="kat-hint">Taste b zum Springen, Esc zum Verlassen</span>
+                  <span class="kat-hint">Klick ins Feld zum Bearbeiten, Esc zum Verlassen</span>
                 </header>
                 <textarea
                   bind:this={bemerkungRef}
@@ -990,13 +975,13 @@
           <section>
             <h3>Bemerkung (Klassenlehrer:in)</h3>
             <dl>
-              <dt><kbd>b</kbd></dt><dd>Sprung ins Bemerkungsfeld</dd>
+              <dt>Maus-Klick</dt><dd>Cursor ins Bemerkungsfeld</dd>
               <dt><kbd>Esc</kbd></dt><dd>Bemerkung verlassen</dd>
             </dl>
           </section>
         </div>
         <footer>
-          <p>Auto-Advance: nach jeder Auswahl springt der Fokus zur naechsten Kategorie. Nach der letzten Kategorie springt er bei Klassenlehrer:innen in die Bemerkung, sonst zur naechsten Schueler:in.</p>
+          <p>Auto-Advance: nach jeder Auswahl springt der Fokus zur naechsten Kategorie. Nach der letzten Kategorie geht es direkt zur naechsten Schueler:in (Kategorie 1). Bemerkung nur per Maus-Klick.</p>
         </footer>
       </div>
     </div>
