@@ -9,6 +9,36 @@
   import BugButton from '$lib/BugButton.svelte';
   import Celebration from '$lib/Celebration.svelte';
 
+  // __APP_VERSION__ wird von vite via define() injectiert (siehe vite.config.js).
+  // Wir greifen ueber globalThis zu, damit svelte-check nicht ueber das
+  // declare-Statement im Modul-Kopf stolpert (das gehoert in context=module).
+  const appVersion = (globalThis as any).__APP_VERSION__ ?? '0.0.0';
+
+  // Auto-Logout nach Inaktivitaet. Schuetzt den Lock-Slot auf Z:\, falls
+  // jemand die App offen laesst (Pause, Klassen-Wechsel) -- nach 10min
+  // ohne Maus/Tastatur-Event wird abgemeldet, der Slot ist wieder frei.
+  const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+  const IDLE_WARN_MS = 30 * 1000;
+  let idleHandle: ReturnType<typeof setTimeout> | null = null;
+  let warnHandle: ReturnType<typeof setTimeout> | null = null;
+  let warnSichtbar = $state(false);
+
+  function clearIdleTimers() {
+    if (idleHandle) { clearTimeout(idleHandle); idleHandle = null; }
+    if (warnHandle) { clearTimeout(warnHandle); warnHandle = null; }
+    warnSichtbar = false;
+  }
+  function armIdleTimers() {
+    clearIdleTimers();
+    if (!session.rolle) return;
+    warnHandle = setTimeout(() => { warnSichtbar = true; }, IDLE_TIMEOUT_MS - IDLE_WARN_MS);
+    idleHandle = setTimeout(() => { handleLogout('idle'); }, IDLE_TIMEOUT_MS);
+  }
+  function onActivity() {
+    if (!session.rolle) return;
+    armIdleTimers();
+  }
+
   let theme = $state<'light' | 'dark'>('light');
 
   function applyTheme(t: 'light' | 'dark') {
@@ -34,9 +64,31 @@
     session.schule = await schulname();
     session.schuljahr = await aktuellesSchuljahr();
     session.rolle = await currentRole();
+    if (session.rolle) armIdleTimers();
+    for (const ev of ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel']) {
+      window.addEventListener(ev, onActivity, { passive: true });
+    }
   });
 
-  async function handleLogout() {
+  // Cleanup separat ueber $effect.root, damit onMount keinen Promise<()=>void> zurueckgibt.
+  $effect(() => {
+    return () => {
+      if (typeof window === 'undefined') return;
+      for (const ev of ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel']) {
+        window.removeEventListener(ev, onActivity);
+      }
+      clearIdleTimers();
+    };
+  });
+
+  $effect(() => {
+    // Wenn sich session.rolle aendert (z.B. nach Login auf einer
+    // anderen Seite), Idle-Timer entsprechend an/aus.
+    if (session.rolle) armIdleTimers(); else clearIdleTimers();
+  });
+
+  async function handleLogout(grund: 'klick' | 'idle' = 'klick') {
+    clearIdleTimers();
     await logout();
     session.rolle = null;
     // Kuerzel ist an die Person gebunden, nicht an den PC -- bei Abmeldung
@@ -44,7 +96,12 @@
     // ihr eigenes Kuerzel setzen muss (und nicht aus Versehen unter fremdem
     // Kuerzel speichert).
     kuerzelStore.clear();
-    goto('/login');
+    if (grund === 'idle') {
+      // Nur den Login-Pfad mit Hinweis-Query oeffnen, damit User weiss warum.
+      goto('/login?grund=idle');
+    } else {
+      goto('/login');
+    }
   }
 
   let { children } = $props();
@@ -70,12 +127,19 @@
     </button>
     {#if session.rolle}
       <span class="badge role-{session.rolle}">{session.rolle}</span>
-      <button class="btn-logout" onclick={handleLogout}>Abmelden</button>
+      <button class="btn-logout" onclick={() => handleLogout('klick')}>Abmelden</button>
     {:else}
       <span class="badge muted">nicht angemeldet</span>
     {/if}
   </div>
 </header>
+
+{#if warnSichtbar}
+  <div class="idle-warn" role="alert" aria-live="polite">
+    Du wirst in &lt;30s automatisch abgemeldet (10min ohne Aktivitaet).
+    Maus bewegen oder Taste druecken, um angemeldet zu bleiben.
+  </div>
+{/if}
 
 <main class="app-main">
   {@render children()}
@@ -83,6 +147,8 @@
 
 <footer class="app-footer">
   <span>Jiraso-reloaded</span>
+  <span class="sep">·</span>
+  <span class="mono">v{appVersion}</span>
   <span class="sep">·</span>
   <span class="mono">schiller-offenburg.de</span>
 </footer>
@@ -189,6 +255,21 @@
     max-width: 1280px;
     margin: 0 auto;
     padding: 2rem 1.6rem;
+  }
+
+  .idle-warn {
+    position: fixed;
+    top: 4.6rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff8de;
+    color: #6b4a00;
+    border: 1px solid #d8a000;
+    border-radius: 6px;
+    padding: 0.55rem 1rem;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    z-index: 1200;
   }
 
   .app-footer {

@@ -123,6 +123,21 @@ pub fn run() {
             commands::goodies_zitat,
             commands::bug_report_submit,
         ])
+        .on_window_event(|window, event| {
+            // Lock-Slot freigeben, sobald das Hauptfenster geschlossen wird
+            // (User klickt X, Force-Quit, Strg+Q). Sonst muesste die naechste
+            // Lehrkraft entweder bis stale_hours warten oder den Lock manuell
+            // brechen. Idempotent: wenn bereits per Logout freigegeben, no-op.
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                use tauri::Manager;
+                let app = window.app_handle();
+                let state = app.state::<commands::AppState>();
+                if let Some(s) = state.session.lock().unwrap().take() {
+                    let _ = lock::release(&state.lock_path, &s.id);
+                }
+                *state.rolle.lock().unwrap() = None;
+            }
+        })
         .run(tauri::generate_context!())
         .expect("Tauri-App konnte nicht starten");
 }

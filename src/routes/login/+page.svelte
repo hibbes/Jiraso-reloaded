@@ -11,8 +11,13 @@
   // x-Knopf oben rechts), liegt das Kuerzel der vorigen Lehrkraft noch in
   // localStorage. Beim erneuten Login-Aufruf wegwerfen, damit niemand
   // versehentlich unter fremdem Kuerzel speichert.
+  let idleHinweis = $state(false);
   onMount(() => {
     kuerzelStore.clear();
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('grund') === 'idle') idleHinweis = true;
+    }
   });
 
   type RolleId = 'fachlehrer' | 'klassenlehrer' | 'administrator';
@@ -117,6 +122,12 @@
 </script>
 
 <div class="login-wrap">
+  {#if idleHinweis}
+    <div class="idle-hinweis" role="alert">
+      Du wurdest nach 10min ohne Aktivitaet automatisch abgemeldet, damit
+      der Lock-Slot fuer die naechste Lehrkraft frei ist.
+    </div>
+  {/if}
   {#if !auswahl}
     <div class="rollen-auswahl">
       <h1>Wer arbeitet hier?</h1>
@@ -243,8 +254,19 @@
 <style>
   .login-wrap {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     padding-top: 2.5rem;
+  }
+  .idle-hinweis {
+    background: #fff8de;
+    color: #6b4a00;
+    border: 1px solid #d8a000;
+    border-radius: 6px;
+    padding: 0.7rem 1rem;
+    font-size: 0.92rem;
+    margin-bottom: 1.4rem;
+    max-width: 480px;
   }
   .rollen-auswahl {
     width: 100%;
