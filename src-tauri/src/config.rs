@@ -20,6 +20,12 @@ pub struct BugReportConfig {
     pub github_token: String,
     #[serde(default = "default_repo")]
     pub repo: String,
+    /// Optionaler HTTPS-Proxy fuer api.github.com (Schul-Proxy).
+    /// Beispiele: "http://proxy.schule.lan:8080" oder
+    /// "http://user:pass@proxy.schule.lan:8080".
+    /// Leer = kein Proxy bzw. HTTPS_PROXY/HTTP_PROXY-Env-Var nutzen.
+    #[serde(default)]
+    pub http_proxy: String,
 }
 
 fn default_repo() -> String {
@@ -66,6 +72,7 @@ impl Default for AppConfig {
             goodies: GoodiesConfig::default(),
             lock: LockConfig::default(),
             bug_report: BugReportConfig {
+                http_proxy: String::new(),
                 github_token: String::new(),
                 repo: default_repo(),
             },

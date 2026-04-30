@@ -2,6 +2,7 @@
 use crate::config::AppConfig;
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
+use std::error::Error as StdError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IssueResponse {
@@ -24,17 +25,53 @@ pub fn submit(cfg: &AppConfig, titel: &str, body: &str) -> AppResult<IssueRespon
         "body": body,
         "labels": ["bug-report-app"],
     });
-    let client = reqwest::blocking::Client::builder()
+
+    // Proxy-Aufloesung: explizite Config gewinnt, sonst HTTPS_PROXY/HTTP_PROXY
+    // aus Environment (Schul-Proxy ist haeufig dort gesetzt). reqwest 0.12
+    // mit default-features=false aktiviert die Auto-Detection NICHT mehr,
+    // deshalb explizit lesen.
+    let proxy_url = if !cfg.bug_report.http_proxy.trim().is_empty() {
+        Some(cfg.bug_report.http_proxy.trim().to_string())
+    } else {
+        std::env::var("HTTPS_PROXY")
+            .or_else(|_| std::env::var("https_proxy"))
+            .or_else(|_| std::env::var("HTTP_PROXY"))
+            .or_else(|_| std::env::var("http_proxy"))
+            .ok()
+    };
+
+    let mut builder = reqwest::blocking::Client::builder()
         .user_agent("jiraso-reloaded-bug-reporter")
+        .timeout(std::time::Duration::from_secs(20));
+    if let Some(p) = &proxy_url {
+        let proxy = reqwest::Proxy::all(p)
+            .map_err(|e| AppError::Config(format!("Proxy-URL ungueltig ({p}): {e}")))?;
+        builder = builder.proxy(proxy);
+    }
+    let client = builder
         .build()
         .map_err(|e| AppError::Config(format!("HTTP-Client-Fehler: {e}")))?;
+
     let resp = client
         .post(&url)
         .bearer_auth(&cfg.bug_report.github_token)
         .header("Accept", "application/vnd.github+json")
         .json(&payload)
         .send()
-        .map_err(|e| AppError::Config(format!("GitHub-Request fehlgeschlagen: {e}")))?;
+        .map_err(|e| {
+            // Volle Fehler-Kette ausgeben (TLS/DNS/Proxy-Details stecken in source).
+            let mut chain = format!("{e}");
+            let mut src: Option<&(dyn StdError + 'static)> = StdError::source(&e);
+            while let Some(s) = src {
+                chain.push_str(&format!(" -> {s}"));
+                src = s.source();
+            }
+            let proxy_hint = match &proxy_url {
+                Some(p) => format!(" (Proxy: {p})"),
+                None => " (kein Proxy konfiguriert -- Schule? [bug_report].http_proxy in config.toml setzen)".into(),
+            };
+            AppError::Config(format!("GitHub-Request fehlgeschlagen{proxy_hint}: {chain}"))
+        })?;
     if !resp.status().is_success() {
         let status = resp.status();
         let txt = resp.text().unwrap_or_default();

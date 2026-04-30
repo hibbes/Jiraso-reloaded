@@ -30,3 +30,8 @@ max_parallel = 2
 [bug_report]
 repo         = "hibbes/Jiraso-reloaded"
 github_token = ""
+# Optional: HTTPS-Proxy fuer api.github.com (wenn die Schule hinter
+# einem Proxy haengt). Leer = HTTPS_PROXY/HTTP_PROXY aus Env nutzen,
+# sonst direkter Internet-Zugang.
+# Beispiel: http_proxy = "http://proxy.schule.lan:8080"
+http_proxy   = ""
