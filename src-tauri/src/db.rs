@@ -7,12 +7,14 @@ use std::path::Path;
 static MIGRATIONS_001: &str = include_str!("migrations/001_initial.sql");
 static MIGRATIONS_002: &str = include_str!("migrations/002_schuljahr_aktiv.sql");
 static MIGRATIONS_003: &str = include_str!("migrations/003_bewertung_pk.sql");
+static MIGRATIONS_004: &str = include_str!("migrations/004_editor_kuerzel.sql");
 
 pub fn migrations() -> Migrations<'static> {
     Migrations::new(vec![
         M::up(MIGRATIONS_001),
         M::up(MIGRATIONS_002),
         M::up(MIGRATIONS_003),
+        M::up(MIGRATIONS_004),
     ])
 }
 

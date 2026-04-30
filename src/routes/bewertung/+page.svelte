@@ -1,9 +1,10 @@
 <!-- src/routes/bewertung/+page.svelte -->
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import { confirm as tauriConfirm } from '@tauri-apps/plugin-dialog';
   import { session } from '$lib/session.svelte';
+  import { kuerzelStore } from '$lib/kuerzel.svelte';
   import { celebration } from '$lib/celebration.svelte.ts';
   import {
     stammdaten,
@@ -23,9 +24,11 @@
   type Cell = {
     formulierung_id: number | null;
     geaendert_am: string | null;
+    editor_kuerzel: string | null;
     status: 'idle' | 'saving' | 'saved' | 'konflikt';
     konfliktServerFid?: number | null;
     konfliktServerTs?: string;
+    konfliktServerKuerzel?: string | null;
   };
 
   let aktivesSchuljahr = $state<Schuljahr | null>(null);
@@ -48,6 +51,20 @@
   let pollHandle: ReturnType<typeof setInterval> | null = null;
   let fertigToast = $state<string | null>(null);
   let fertigToastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Kürzel-Schutz: Wer ist gerade eingetragen? Wer hat zuletzt in dieser Klasse/Fach
+  // editiert? Modal beim ersten Überschreiben fremder Einträge pro (Klasse, Fach).
+  let kuerzelPromptOffen = $state(false);
+  let kuerzelEingabe = $state('');
+  let kuerzelFehler = $state<string | null>(null);
+  let letzterEditor = $state<{ kuerzel: string; ts: string } | null>(null);
+  // Schon-gewarnt-Set: Pro (klasse, fach) max. einmal die Confirm-Frage ("wirklich
+  // fremde Einträge überschreiben?"), damit es nicht bei jedem Klick nervt.
+  let schonGewarnt = $state<Set<string>>(new Set());
+  let pendingFremdSave = $state<null | {
+    s: SchuelerMini; k: Kategorie; fid: number | null;
+    fremdKuerzel: string; fremdTs: string;
+  }>(null);
 
   // Panel-Modus: Schueler-Liste links + vertikaler Kategorien-Karten-Stack rechts.
   // Ziel: pro Schueler:in 7 Tastendruecke fuer komplette Bewertung.
@@ -297,6 +314,10 @@
 
   onMount(async () => {
     if (!session.rolle) { goto('/login'); return; }
+    kuerzelStore.load();
+    if (!kuerzelStore.kuerzel) {
+      kuerzelPromptOffen = true;
+    }
     const sjs = await stammdaten.list();
     aktivesSchuljahr = sjs.find(s => s.aktiv) ?? null;
     if (!aktivesSchuljahr) { fehler = 'Kein aktives Schuljahr.'; return; }
@@ -310,6 +331,24 @@
     pollHandle = setInterval(refreshMatrixSilent, 30_000);
     window.addEventListener('keydown', handleKey);
   });
+
+  function kuerzelBestaetigen() {
+    const v = kuerzelEingabe.trim();
+    if (v.length < 2 || v.length > 8) {
+      kuerzelFehler = 'Bitte 2–8 Zeichen eingeben (z.B. "MZ" oder "CZE").';
+      return;
+    }
+    kuerzelStore.set(v);
+    kuerzelEingabe = '';
+    kuerzelFehler = null;
+    kuerzelPromptOffen = false;
+  }
+
+  function kuerzelOeffnen() {
+    kuerzelEingabe = kuerzelStore.kuerzel ?? '';
+    kuerzelFehler = null;
+    kuerzelPromptOffen = true;
+  }
 
   $effect(() => {
     return () => {
@@ -328,6 +367,24 @@
     else main.classList.remove('wide');
   });
 
+  // Aktive Kategorie-Karte ins Bildschirm-Zentrum scrollen, sobald sich der
+  // Index ändert (Auto-Advance, n/p, Schueler-Wechsel). So wandert der
+  // Lesefokus mit, ohne dass die KuK manuell scrollen muss.
+  $effect(() => {
+    if (viewMode !== 'panel') return;
+    if (!fokusSchueler) return;
+    // Reaktivität an aktiveKategorieIndex + fokusSchueler-Wechsel knüpfen
+    const idx = aktiveKategorieIndex;
+    const sid = fokusSchueler.id;
+    void idx; void sid;
+    tick().then(() => {
+      const el = document.querySelector('.kat-karte.aktiv');
+      if (el && 'scrollIntoView' in el) {
+        (el as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    });
+  });
+
   function key(s: number, k: number) { return `${s}:${k}`; }
 
   async function ladeKlasseUndFach() {
@@ -337,16 +394,20 @@
     cells = {};
     for (const s of schueler) {
       for (const k of kategorien) {
-        cells[key(s.id, k.id)] = { formulierung_id: null, geaendert_am: null, status: 'idle' };
+        cells[key(s.id, k.id)] = { formulierung_id: null, geaendert_am: null, editor_kuerzel: null, status: 'idle' };
       }
     }
     for (const m of matrix) {
       cells[key(m.schueler_id, m.kategorie_id)] = {
         formulierung_id: m.formulierung_id,
         geaendert_am: m.geaendert_am,
+        editor_kuerzel: m.editor_kuerzel,
         status: 'idle',
       };
     }
+    // Letzter Editor in dieser (Klasse, Fach)-Kombi -> Banner-Eingabe
+    const le = await bewertungApi.letzterEditor(aktiveKlasse.id, aktivesFach.id);
+    letzterEditor = le ? { kuerzel: le[0], ts: le[1] } : null;
   }
 
   async function refreshMatrixSilent() {
@@ -356,7 +417,7 @@
       const k = key(m.schueler_id, m.kategorie_id);
       const c = cells[k];
       if (c && c.status !== 'saving' && c.status !== 'konflikt') {
-        cells[k] = { formulierung_id: m.formulierung_id, geaendert_am: m.geaendert_am, status: 'idle' };
+        cells[k] = { formulierung_id: m.formulierung_id, geaendert_am: m.geaendert_am, editor_kuerzel: m.editor_kuerzel, status: 'idle' };
       }
     }
   }
@@ -365,7 +426,35 @@
     ladeKlasseUndFach();
   });
 
+  function fremdSchutzKey(): string | null {
+    if (!aktiveKlasse || !aktivesFach) return null;
+    return `${aktiveKlasse.id}:${aktivesFach.id}`;
+  }
+
+  // Wenn die Zielzelle ein FREMDES Kürzel trägt und wir in dieser (Klasse, Fach)
+  // noch nicht gewarnt wurden — Modal stellen, Save aufschieben.
   async function setCell(s: SchuelerMini, k: Kategorie, fid: number | null) {
+    if (!aktivesFach) return;
+    if (!kuerzelStore.kuerzel) {
+      kuerzelOeffnen();
+      return;
+    }
+    const ck = key(s.id, k.id);
+    const before = cells[ck];
+    const fremd = before.editor_kuerzel && before.editor_kuerzel !== kuerzelStore.kuerzel;
+    const fkey = fremdSchutzKey();
+    if (fremd && fkey && !schonGewarnt.has(fkey)) {
+      pendingFremdSave = {
+        s, k, fid,
+        fremdKuerzel: before.editor_kuerzel ?? '?',
+        fremdTs: before.geaendert_am ?? '',
+      };
+      return;
+    }
+    await setCellRaw(s, k, fid);
+  }
+
+  async function setCellRaw(s: SchuelerMini, k: Kategorie, fid: number | null) {
     if (!aktivesFach) return;
     const ck = key(s.id, k.id);
     const before = cells[ck];
@@ -376,21 +465,45 @@
       kategorie_id: k.id,
       formulierung_id: fid,
       vorheriger_stand: before.geaendert_am,
+      editor_kuerzel: kuerzelStore.kuerzel,
     });
     if (r.status === 'Ok') {
-      cells[ck] = { formulierung_id: fid, geaendert_am: r.neuer_stand || null, status: 'saved' };
+      cells[ck] = {
+        formulierung_id: fid,
+        geaendert_am: r.neuer_stand || null,
+        editor_kuerzel: kuerzelStore.kuerzel,
+        status: 'saved',
+      };
       setTimeout(() => {
         if (cells[ck].status === 'saved') cells[ck] = { ...cells[ck], status: 'idle' };
       }, 1500);
+      // Banner-Inhalt aktualisieren (wir sind jetzt der letzte Editor)
+      if (kuerzelStore.kuerzel) {
+        letzterEditor = { kuerzel: kuerzelStore.kuerzel, ts: r.neuer_stand || '' };
+      }
     } else {
       cells[ck] = {
         formulierung_id: fid, // unsere lokale Wahl
         geaendert_am: before.geaendert_am,
+        editor_kuerzel: before.editor_kuerzel,
         status: 'konflikt',
         konfliktServerFid: r.server_formulierung_id,
         konfliktServerTs: r.server_geaendert_am,
+        konfliktServerKuerzel: r.server_editor_kuerzel,
       };
     }
+  }
+
+  async function fremdConfirmJa() {
+    if (!pendingFremdSave) return;
+    const { s, k, fid } = pendingFremdSave;
+    const fkey = fremdSchutzKey();
+    if (fkey) schonGewarnt = new Set([...schonGewarnt, fkey]);
+    pendingFremdSave = null;
+    await setCellRaw(s, k, fid);
+  }
+  function fremdConfirmAbbrechen() {
+    pendingFremdSave = null;
   }
 
   async function konfliktMeineUebernehmen(s: SchuelerMini, k: Kategorie) {
@@ -401,9 +514,15 @@
       schueler_id: s.id, fach_id: aktivesFach.id, kategorie_id: k.id,
       formulierung_id: c.formulierung_id,
       vorheriger_stand: c.konfliktServerTs ?? null,
+      editor_kuerzel: kuerzelStore.kuerzel,
     });
     if (r.status === 'Ok') {
-      cells[ck] = { formulierung_id: c.formulierung_id, geaendert_am: r.neuer_stand || null, status: 'saved' };
+      cells[ck] = {
+        formulierung_id: c.formulierung_id,
+        geaendert_am: r.neuer_stand || null,
+        editor_kuerzel: kuerzelStore.kuerzel,
+        status: 'saved',
+      };
     }
   }
   function konfliktIhreBehalten(s: SchuelerMini, k: Kategorie) {
@@ -412,6 +531,7 @@
     cells[ck] = {
       formulierung_id: c.konfliktServerFid ?? null,
       geaendert_am: c.konfliktServerTs ?? null,
+      editor_kuerzel: c.konfliktServerKuerzel ?? null,
       status: 'idle',
     };
   }
@@ -423,7 +543,7 @@
     bemerkungKonfliktTs = null;
     if (session.rolle !== 'klassenlehrer' && session.rolle !== 'administrator') return;
     const got = await bemerkungApi.get(s.id);
-    if (got) { [bemerkungText, bemerkungStand] = got; }
+    if (got) { [bemerkungText, bemerkungStand] = [got[0], got[1]]; }
     else { bemerkungText = ''; bemerkungStand = null; }
   }
 
@@ -434,7 +554,7 @@
   async function saveBemerkung() {
     if (!fokusSchueler) return;
     bemerkungStatus = 'saving';
-    const r = await bemerkungApi.set(fokusSchueler.id, bemerkungText, bemerkungStand);
+    const r = await bemerkungApi.set(fokusSchueler.id, bemerkungText, bemerkungStand, kuerzelStore.kuerzel);
     if (r.status === 'Ok') {
       bemerkungStand = r.neuer_stand || null;
       bemerkungStatus = 'saved';
@@ -446,7 +566,7 @@
   }
   async function bemKonfliktMeine() {
     if (!fokusSchueler) return;
-    const r = await bemerkungApi.set(fokusSchueler.id, bemerkungText, bemerkungKonfliktTs);
+    const r = await bemerkungApi.set(fokusSchueler.id, bemerkungText, bemerkungKonfliktTs, kuerzelStore.kuerzel);
     if (r.status === 'Ok') {
       bemerkungStand = r.neuer_stand || null;
       bemerkungStatus = 'saved';
@@ -456,7 +576,7 @@
   async function bemKonfliktIhre() {
     if (!fokusSchueler) return;
     const got = await bemerkungApi.get(fokusSchueler.id);
-    if (got) { [bemerkungText, bemerkungStand] = got; }
+    if (got) { [bemerkungText, bemerkungStand] = [got[0], got[1]]; }
     bemerkungStatus = 'idle';
     bemerkungKonfliktTs = null;
   }
@@ -487,7 +607,18 @@
         {#each faecher as f (f.id)}<option value={f}>{f.name}</option>{/each}
       </select>
     </label>
+    <button type="button" class="kuerzel-pill" onclick={kuerzelOeffnen} title="Eigenes Kürzel ändern">
+      Kürzel: <strong>{kuerzelStore.kuerzel ?? '— bitte setzen —'}</strong>
+    </button>
   </div>
+
+  {#if aktiveKlasse && aktivesFach && letzterEditor && letzterEditor.kuerzel !== kuerzelStore.kuerzel}
+    <div class="fremd-banner" role="alert">
+      ⚠ In <strong>{aktiveKlasse.name} – {aktivesFach.name}</strong> hat zuletzt
+      <strong>{letzterEditor.kuerzel}</strong> editiert ({letzterEditor.ts}).
+      Du bist als <strong>{kuerzelStore.kuerzel ?? '?'}</strong> angemeldet — bist du sicher in der richtigen Klasse?
+    </div>
+  {/if}
 
   {#if aktiveKlasse && aktivesFach}
     <div class="fertig-row">
@@ -617,7 +748,11 @@
                 </div>
                 {#if c.status === 'konflikt'}
                   <div class="konflikt-banner">
-                    Andere Sitzung hat
+                    {#if c.konfliktServerKuerzel}
+                      <strong>{c.konfliktServerKuerzel}</strong> hat
+                    {:else}
+                      Andere Sitzung hat
+                    {/if}
                     {#if c.konfliktServerFid != null}
                       „{forms.find(x => x.id === c.konfliktServerFid)?.text ?? '?'}"
                     {:else}
@@ -702,7 +837,11 @@
                     <span class="status">{statusIcon(c.status)}</span>
                     {#if c.status === 'konflikt'}
                       <div class="konflikt-banner">
-                        Andere Sitzung hat
+                        {#if c.konfliktServerKuerzel}
+                          <strong>{c.konfliktServerKuerzel}</strong> hat
+                        {:else}
+                          Andere Sitzung hat
+                        {/if}
                         {#if c.konfliktServerFid != null}
                           „{forms.find(x => x.id === c.konfliktServerFid)?.text ?? '?'}"
                         {:else}
@@ -749,6 +888,69 @@
       </aside>
     </div>
     {/if}
+  {/if}
+
+  {#if kuerzelPromptOffen}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="modal-overlay" onclick={() => { if (kuerzelStore.kuerzel) kuerzelPromptOffen = false; }}>
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+      <div class="modal-content" onclick={(e) => e.stopPropagation()} role="dialog" tabindex="-1">
+        <h2>Wer arbeitet hier?</h2>
+        <p>
+          Bitte gib dein Kürzel ein (2–8 Zeichen, z.&nbsp;B. <code>MZ</code> oder <code>CZE</code>).
+          Es wird an jede Bewertung gehängt — andere Lehrkräfte sehen dann, dass du der letzte Editor warst,
+          und werden gewarnt, bevor sie deine Eingaben überschreiben.
+        </p>
+        <form onsubmit={(e) => { e.preventDefault(); kuerzelBestaetigen(); }}>
+          <label>
+            Mein Kürzel
+            <input
+              type="text"
+              bind:value={kuerzelEingabe}
+              maxlength="8"
+              autofocus
+              autocomplete="off"
+              required
+            />
+          </label>
+          {#if kuerzelFehler}
+            <p class="modal-error">{kuerzelFehler}</p>
+          {/if}
+          <div class="modal-actions">
+            {#if kuerzelStore.kuerzel}
+              <button type="button" onclick={() => { kuerzelPromptOffen = false; kuerzelFehler = null; }}>Abbrechen</button>
+            {/if}
+            <button type="submit" class="primary">Übernehmen</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {/if}
+
+  {#if pendingFremdSave}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <div class="modal-overlay" onclick={fremdConfirmAbbrechen}>
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+      <div class="modal-content fremd-modal" onclick={(e) => e.stopPropagation()} role="alertdialog" tabindex="-1">
+        <h2>Fremde Bewertung überschreiben?</h2>
+        <p>
+          In dieser Zelle hat <strong>{pendingFremdSave.fremdKuerzel}</strong> am
+          <strong>{pendingFremdSave.fremdTs}</strong> bereits etwas eingetragen. Du bist als
+          <strong>{kuerzelStore.kuerzel}</strong> angemeldet.
+        </p>
+        <p>
+          Bist du wirklich in der <strong>richtigen Klasse</strong>?
+          Falls ja, gilt die Frage für die ganze Sitzung als beantwortet — du wirst beim
+          nächsten fremden Eintrag nicht erneut gefragt.
+        </p>
+        <div class="modal-actions">
+          <button type="button" onclick={fremdConfirmAbbrechen}>Abbrechen</button>
+          <button type="button" class="primary danger" onclick={fremdConfirmJa}>
+            Ja, überschreiben (für ganze Sitzung bestätigen)
+          </button>
+        </div>
+      </div>
+    </div>
   {/if}
 
   {#if cheatSheetOffen}
@@ -805,7 +1007,65 @@
   .container { max-width: 1400px; margin: 0 auto; padding: 1rem; }
   header { display: flex; justify-content: space-between; align-items: center; }
   .error { background: #fee; color: #900; padding: 1rem; border-radius: 4px; }
-  .controls { display: flex; gap: 1rem; margin: 1rem 0; }
+  .controls { display: flex; gap: 1rem; align-items: center; margin: 1rem 0; flex-wrap: wrap; }
+  .kuerzel-pill {
+    margin-left: auto;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--sg-border, #cfd6dd);
+    border-radius: 999px;
+    background: var(--sg-surface, #fff);
+    color: var(--sg-text, #1a1d22);
+    cursor: pointer;
+    font-size: 0.88rem;
+  }
+  .kuerzel-pill:hover { background: var(--sg-bg-card, #f3f5f7); }
+  .kuerzel-pill strong { font-family: ui-monospace, monospace; }
+
+  .fremd-banner {
+    margin: 0 0 1rem;
+    padding: 0.7rem 1rem;
+    border: 1px solid #d8a000;
+    background: #fff8e0;
+    color: #5a4400;
+    border-radius: 6px;
+    font-size: 0.92rem;
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(20,20,30,0.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1100; padding: 1rem;
+  }
+  .modal-content {
+    background: var(--sg-surface, #fff); color: var(--sg-text, #1a1d22);
+    border-radius: 10px; max-width: 540px; width: 100%;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    padding: 1.4rem 1.5rem;
+  }
+  .modal-content h2 { margin: 0 0 0.6rem; font-size: 1.15rem; }
+  .modal-content p { margin: 0 0 0.7rem; line-height: 1.4; }
+  .modal-content code {
+    background: var(--sg-bg-card, #f3f5f7); padding: 0.05rem 0.3rem;
+    border-radius: 3px; font-family: ui-monospace, monospace; font-size: 0.92em;
+  }
+  .modal-content label { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.4rem; }
+  .modal-content input[type="text"] {
+    padding: 0.5rem 0.6rem; border: 1px solid var(--sg-border, #cfd6dd);
+    border-radius: 4px; font-size: 1.05rem; font-family: ui-monospace, monospace;
+    text-transform: uppercase;
+  }
+  .modal-error { color: #c00; margin: 0.5rem 0 0; font-size: 0.88rem; }
+  .modal-actions {
+    display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  .modal-actions .primary {
+    background: var(--sg-petrol, #2a7ea1); color: #fff; border-color: var(--sg-petrol, #2a7ea1);
+  }
+  .modal-actions .primary:hover { background: var(--sg-petrol-hover, #1f6480); }
+  .modal-actions .primary.danger { background: #c0392b; border-color: #c0392b; }
+  .modal-actions .primary.danger:hover { background: #a02818; }
+  .fremd-modal { border-top: 4px solid #d8a000; }
   .grid { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1rem; }
   .matrix { overflow: auto; }
   table { border-collapse: collapse; font-size: 0.92rem; width: 100%; table-layout: fixed; }

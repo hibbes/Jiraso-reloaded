@@ -80,6 +80,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::login,
+            commands::login_fachlehrer,
             commands::logout,
             commands::current_role,
             commands::schulname,
@@ -107,6 +108,7 @@ pub fn run() {
             commands::katalog_kategorie_reihenfolge,
             commands::katalog_formulierung_reihenfolge,
             commands::bewertung_matrix,
+            commands::bewertung_letzter_editor,
             commands::bewertung_set,
             commands::bewertung_wuerfeln,
             commands::bemerkung_get,

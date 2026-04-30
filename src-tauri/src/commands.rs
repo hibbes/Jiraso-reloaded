@@ -48,6 +48,26 @@ pub fn login(
     Ok(rolle)
 }
 
+/// Login als Fachlehrkraft OHNE Passwort. Der Computer ist physisch
+/// passwortgeschützt; ein zusätzliches App-Passwort für den 90%-Anwendungsfall
+/// (Kreuze setzen) ist Reibung ohne Sicherheitsgewinn. Klassenlehrkraft +
+/// Administrator brauchen weiterhin Passwort.
+#[tauri::command]
+pub fn login_fachlehrer(
+    state: tauri::State<AppState>,
+    rechner: String,
+) -> AppResult<Rolle> {
+    let cfg = state.config.lock().unwrap().clone();
+    let lock_cfg = LockCfg {
+        stale_hours: cfg.lock.stale_hours,
+        max_parallel: cfg.lock.max_parallel,
+    };
+    let session = lock::acquire(&state.lock_path, &rechner, "Fachlehrer", &lock_cfg)?;
+    *state.session.lock().unwrap() = Some(session);
+    *state.rolle.lock().unwrap() = Some(Rolle::Fachlehrer);
+    Ok(Rolle::Fachlehrer)
+}
+
 #[tauri::command]
 pub fn logout(state: tauri::State<AppState>) -> AppResult<()> {
     if let Some(s) = state.session.lock().unwrap().take() {
@@ -319,6 +339,17 @@ pub fn bewertung_matrix(klasse_id: i64, fach_id: i64, state: tauri::State<AppSta
 }
 
 #[tauri::command]
+pub fn bewertung_letzter_editor(
+    klasse_id: i64,
+    fach_id: i64,
+    state: tauri::State<AppState>,
+) -> AppResult<Option<(String, String)>> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    bewertung::letzter_editor(&conn, klasse_id, fach_id)
+}
+
+#[tauri::command]
 pub fn bewertung_set(update: BewertungUpdate, state: tauri::State<AppState>) -> AppResult<SetResult> {
     require_lehrer(&state)?;
     let mut conn = open_db(&state)?;
@@ -337,7 +368,7 @@ pub fn bewertung_wuerfeln(klasse_id: i64, state: tauri::State<AppState>) -> AppR
 }
 
 #[tauri::command]
-pub fn bemerkung_get(schueler_id: i64, state: tauri::State<AppState>) -> AppResult<Option<(String, String)>> {
+pub fn bemerkung_get(schueler_id: i64, state: tauri::State<AppState>) -> AppResult<Option<(String, String, Option<String>)>> {
     require_klassenlehrer_oder_admin(&state)?;
     let conn = open_db(&state)?;
     bemerkung::get(&conn, schueler_id)
@@ -348,11 +379,12 @@ pub fn bemerkung_set(
     schueler_id: i64,
     text: String,
     vorheriger_stand: Option<String>,
+    editor_kuerzel: Option<String>,
     state: tauri::State<AppState>,
 ) -> AppResult<SetResult> {
     require_klassenlehrer_oder_admin(&state)?;
     let mut conn = open_db(&state)?;
-    bemerkung::set(&mut conn, schueler_id, &text, vorheriger_stand)
+    bemerkung::set(&mut conn, schueler_id, &text, vorheriger_stand, editor_kuerzel)
 }
 
 // --- Klassen + Schüler Mini-Reads ---

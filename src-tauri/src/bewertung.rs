@@ -12,6 +12,10 @@ pub struct BewertungUpdate {
     /// `None` = wir glauben, die Zelle existiert noch nicht.
     /// `Some(ts)` = wir kennen den Stand `ts` (geaendert_am-String aus matrix()).
     pub vorheriger_stand: Option<String>,
+    /// Kürzel der Lehrkraft, die diese Änderung schreibt. None = unbekannt
+    /// (Legacy oder Fachlehrer ohne Kürzel-Hinterlegung).
+    #[serde(default)]
+    pub editor_kuerzel: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -21,6 +25,8 @@ pub enum SetResult {
     Konflikt {
         server_formulierung_id: Option<i64>,
         server_geaendert_am: String,
+        #[serde(default)]
+        server_editor_kuerzel: Option<String>,
     },
 }
 
@@ -30,6 +36,8 @@ pub struct MatrixZelle {
     pub kategorie_id: i64,
     pub formulierung_id: Option<i64>,
     pub geaendert_am: String,
+    #[serde(default)]
+    pub editor_kuerzel: Option<String>,
 }
 
 /// Liefert alle gespeicherten Bewertungs-Zellen für eine (Klasse, Fach)-Kombi.
@@ -38,7 +46,7 @@ pub struct MatrixZelle {
 /// Fehlende Zeilen = "Lehrer:in hat sich noch nicht damit befasst".
 pub fn matrix(conn: &Connection, klasse_id: i64, fach_id: i64) -> AppResult<Vec<MatrixZelle>> {
     let mut stmt = conn.prepare(
-        "SELECT b.schueler_id, b.kategorie_id, b.formulierung_id, b.geaendert_am
+        "SELECT b.schueler_id, b.kategorie_id, b.formulierung_id, b.geaendert_am, b.editor_kuerzel
          FROM bewertung b
          JOIN schueler s ON s.id = b.schueler_id
          WHERE s.klasse_id = ?1 AND b.fach_id = ?2",
@@ -49,9 +57,30 @@ pub fn matrix(conn: &Connection, klasse_id: i64, fach_id: i64) -> AppResult<Vec<
             kategorie_id: r.get(1)?,
             formulierung_id: r.get(2)?,
             geaendert_am: r.get(3)?,
+            editor_kuerzel: r.get(4)?,
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+/// Liefert das zuletzt eingetragene Kürzel + Zeitpunkt für (klasse, fach).
+/// Wird im Frontend als Banner angezeigt: "Letzte Änderung von <kuerzel> am <ts>".
+pub fn letzter_editor(
+    conn: &Connection,
+    klasse_id: i64,
+    fach_id: i64,
+) -> AppResult<Option<(String, String)>> {
+    let row: Option<(Option<String>, String)> = conn.query_row(
+        "SELECT b.editor_kuerzel, b.geaendert_am
+         FROM bewertung b
+         JOIN schueler s ON s.id = b.schueler_id
+         WHERE s.klasse_id = ?1 AND b.fach_id = ?2 AND b.editor_kuerzel IS NOT NULL
+         ORDER BY b.geaendert_am DESC
+         LIMIT 1",
+        params![klasse_id, fach_id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    ).ok();
+    Ok(row.and_then(|(k, ts)| k.map(|kk| (kk, ts))))
 }
 
 /// Test-Helfer: Würfelt für eine ganze Klasse zufällige Bewertungen +
@@ -190,45 +219,47 @@ fn beispiel_bemerkungen() -> Vec<&'static str> {
 /// - sonst → Konflikt.
 pub fn set(conn: &mut Connection, u: BewertungUpdate) -> AppResult<SetResult> {
     let tx = conn.transaction()?;
-    let server: Option<(Option<i64>, String)> = tx.query_row(
-        "SELECT formulierung_id, geaendert_am
+    let server: Option<(Option<i64>, String, Option<String>)> = tx.query_row(
+        "SELECT formulierung_id, geaendert_am, editor_kuerzel
          FROM bewertung
          WHERE schueler_id=?1 AND fach_id=?2 AND kategorie_id=?3",
         params![u.schueler_id, u.fach_id, u.kategorie_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     ).ok();
 
-    let inhalt_gleich = matches!(&server, Some((srv, _)) if *srv == u.formulierung_id);
+    let inhalt_gleich = matches!(&server, Some((srv, _, _)) if *srv == u.formulierung_id);
 
     let token_passt = match (&u.vorheriger_stand, &server) {
         (None, None) => true,
-        (Some(ts), Some((_, srv_ts))) if ts == srv_ts => true,
+        (Some(ts), Some((_, srv_ts, _))) if ts == srv_ts => true,
         _ => false,
     };
 
     if !token_passt && !inhalt_gleich {
-        let (sfid, sts) = server.unwrap_or((None, String::new()));
+        let (sfid, sts, skz) = server.unwrap_or((None, String::new(), None));
         tx.rollback()?;
         return Ok(SetResult::Konflikt {
             server_formulierung_id: sfid,
             server_geaendert_am: sts,
+            server_editor_kuerzel: skz,
         });
     }
 
     if inhalt_gleich {
-        let (_, ts) = server.unwrap();
+        let (_, ts, _) = server.unwrap();
         tx.rollback()?;
         return Ok(SetResult::Ok { neuer_stand: ts });
     }
 
     // Token passt + Inhalt unterschiedlich → schreiben (NULL und Some(fid) gleich behandeln)
     tx.execute(
-        "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id, geaendert_am)
-         VALUES (?1, ?2, ?3, ?4, datetime('now'))
+        "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id, editor_kuerzel, geaendert_am)
+         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))
          ON CONFLICT(schueler_id, fach_id, kategorie_id) DO UPDATE SET
             formulierung_id = excluded.formulierung_id,
+            editor_kuerzel  = excluded.editor_kuerzel,
             geaendert_am    = excluded.geaendert_am",
-        params![u.schueler_id, u.fach_id, u.kategorie_id, u.formulierung_id],
+        params![u.schueler_id, u.fach_id, u.kategorie_id, u.formulierung_id, u.editor_kuerzel],
     )?;
     let ts: String = tx.query_row(
         "SELECT geaendert_am FROM bewertung WHERE schueler_id=?1 AND fach_id=?2 AND kategorie_id=?3",
@@ -305,7 +336,7 @@ mod tests {
         let (_d, mut conn) = seed();
         let r = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: None,
+            formulierung_id: Some(1), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         assert!(matches!(r, SetResult::Ok { .. }));
         let m = matrix(&conn, 1, 1).unwrap();
@@ -318,12 +349,12 @@ mod tests {
         let (_d, mut conn) = seed();
         set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: None,
+            formulierung_id: Some(1), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         // Zweiter Save ohne Token, gleicher Inhalt: KEIN Konflikt
         let r = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: None,
+            formulierung_id: Some(1), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         assert!(matches!(r, SetResult::Ok { .. }));
     }
@@ -333,14 +364,14 @@ mod tests {
         let (_d, mut conn) = seed();
         set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: None,
+            formulierung_id: Some(1), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         // Zweiter Save: anderer Inhalt, kein Token → Konflikt
         conn.execute("INSERT INTO formulierung(kategorie_id, text, reihenfolge) VALUES (1, 'mittelmäßig', 2)", []).unwrap();
         let neue_id = conn.last_insert_rowid();
         let r = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(neue_id), vorheriger_stand: None,
+            formulierung_id: Some(neue_id), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         match r {
             SetResult::Konflikt { server_formulierung_id, .. } => {
@@ -355,7 +386,7 @@ mod tests {
         let (_d, mut conn) = seed();
         let r1 = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: None,
+            formulierung_id: Some(1), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         let token = match r1 {
             SetResult::Ok { neuer_stand } => neuer_stand,
@@ -364,7 +395,7 @@ mod tests {
         conn.execute("INSERT INTO formulierung(kategorie_id, text, reihenfolge) VALUES (1, 'gut', 2)", []).unwrap();
         let r2 = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(2), vorheriger_stand: Some(token),
+            formulierung_id: Some(2), vorheriger_stand: Some(token), editor_kuerzel: None,
         }).unwrap();
         assert!(matches!(r2, SetResult::Ok { .. }));
         let m = matrix(&conn, 1, 1).unwrap();
@@ -376,7 +407,7 @@ mod tests {
         let (_d, mut conn) = seed();
         let r1 = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: None,
+            formulierung_id: Some(1), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         let token = match r1 {
             SetResult::Ok { neuer_stand } => neuer_stand,
@@ -384,7 +415,7 @@ mod tests {
         };
         let r2 = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: None, vorheriger_stand: Some(token),
+            formulierung_id: None, vorheriger_stand: Some(token), editor_kuerzel: None,
         }).unwrap();
         assert!(matches!(r2, SetResult::Ok { .. }));
         // NULL-Bewertung bleibt als Zeile, damit "Klasse fertig" detektierbar ist
@@ -437,7 +468,7 @@ mod tests {
         let (_d, mut conn) = seed();
         let r1 = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: None,
+            formulierung_id: Some(1), vorheriger_stand: None, editor_kuerzel: None,
         }).unwrap();
         let token = match r1 {
             SetResult::Ok { neuer_stand } => neuer_stand,
@@ -449,12 +480,51 @@ mod tests {
         ).unwrap();
         let r2 = set(&mut conn, BewertungUpdate {
             schueler_id: 1, fach_id: 1, kategorie_id: 1,
-            formulierung_id: Some(1), vorheriger_stand: Some(token),
+            formulierung_id: Some(1), vorheriger_stand: Some(token), editor_kuerzel: None,
         }).unwrap();
         match r2 {
-            SetResult::Konflikt { server_formulierung_id, server_geaendert_am } => {
+            SetResult::Konflikt { server_formulierung_id, server_geaendert_am, .. } => {
                 assert!(server_formulierung_id.is_none());
                 assert!(server_geaendert_am.is_empty());
+            }
+            _ => panic!("erwartete Konflikt"),
+        }
+    }
+
+    #[test]
+    fn set_speichert_editor_kuerzel_und_letzter_editor_liefert_es() {
+        let (_d, mut conn) = seed();
+        set(&mut conn, BewertungUpdate {
+            schueler_id: 1, fach_id: 1, kategorie_id: 1,
+            formulierung_id: Some(1), vorheriger_stand: None,
+            editor_kuerzel: Some("MZ".into()),
+        }).unwrap();
+        let m = matrix(&conn, 1, 1).unwrap();
+        assert_eq!(m[0].editor_kuerzel, Some("MZ".into()));
+
+        let le = letzter_editor(&conn, 1, 1).unwrap();
+        assert_eq!(le.map(|(k, _)| k), Some("MZ".into()));
+    }
+
+    #[test]
+    fn set_konflikt_liefert_server_editor_kuerzel() {
+        let (_d, mut conn) = seed();
+        set(&mut conn, BewertungUpdate {
+            schueler_id: 1, fach_id: 1, kategorie_id: 1,
+            formulierung_id: Some(1), vorheriger_stand: None,
+            editor_kuerzel: Some("MZ".into()),
+        }).unwrap();
+        // anderer Editor versucht zu überschreiben ohne Token
+        conn.execute("INSERT INTO formulierung(kategorie_id, text, reihenfolge) VALUES (1, 'gut', 2)", []).unwrap();
+        let neue_id = conn.last_insert_rowid();
+        let r = set(&mut conn, BewertungUpdate {
+            schueler_id: 1, fach_id: 1, kategorie_id: 1,
+            formulierung_id: Some(neue_id), vorheriger_stand: None,
+            editor_kuerzel: Some("NN".into()),
+        }).unwrap();
+        match r {
+            SetResult::Konflikt { server_editor_kuerzel, .. } => {
+                assert_eq!(server_editor_kuerzel, Some("MZ".into()));
             }
             _ => panic!("erwartete Konflikt"),
         }

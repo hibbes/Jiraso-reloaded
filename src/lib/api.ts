@@ -7,6 +7,10 @@ export async function login(passwort: string, rechner: string): Promise<Rolle> {
   return invoke<Rolle>('login', { passwort, rechner });
 }
 
+export async function loginFachlehrer(rechner: string): Promise<Rolle> {
+  return invoke<Rolle>('login_fachlehrer', { rechner });
+}
+
 export async function logout(): Promise<void> {
   return invoke<void>('logout');
 }
@@ -185,6 +189,7 @@ export type MatrixZelle = {
   kategorie_id: number;
   formulierung_id: number | null;
   geaendert_am: string;
+  editor_kuerzel: string | null;
 };
 
 export type BewertungUpdate = {
@@ -193,15 +198,23 @@ export type BewertungUpdate = {
   kategorie_id: number;
   formulierung_id: number | null;
   vorheriger_stand: string | null;
+  editor_kuerzel: string | null;
 };
 
 export type SetResult =
   | { status: 'Ok'; neuer_stand: string }
-  | { status: 'Konflikt'; server_formulierung_id: number | null; server_geaendert_am: string };
+  | {
+      status: 'Konflikt';
+      server_formulierung_id: number | null;
+      server_geaendert_am: string;
+      server_editor_kuerzel: string | null;
+    };
 
 export const bewertung = {
   matrix: (klasseId: number, fachId: number) =>
     invoke<MatrixZelle[]>('bewertung_matrix', { klasseId, fachId }),
+  letzterEditor: (klasseId: number, fachId: number) =>
+    invoke<[string, string] | null>('bewertung_letzter_editor', { klasseId, fachId }),
   set: (update: BewertungUpdate) =>
     invoke<SetResult>('bewertung_set', { update }),
   wuerfeln: (klasseId: number) =>
@@ -212,9 +225,9 @@ export const bewertung = {
 
 export const bemerkung = {
   get: (schuelerId: number) =>
-    invoke<[string, string] | null>('bemerkung_get', { schuelerId }),
-  set: (schuelerId: number, text: string, vorherigerStand: string | null) =>
-    invoke<SetResult>('bemerkung_set', { schuelerId, text, vorherigerStand })
+    invoke<[string, string, string | null] | null>('bemerkung_get', { schuelerId }),
+  set: (schuelerId: number, text: string, vorherigerStand: string | null, editorKuerzel: string | null) =>
+    invoke<SetResult>('bemerkung_set', { schuelerId, text, vorherigerStand, editorKuerzel })
 };
 
 // --- Klassen + Schüler (für Bewertungs-Matrix, Backend Task 11) ---

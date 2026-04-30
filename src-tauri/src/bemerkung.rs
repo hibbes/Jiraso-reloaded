@@ -3,12 +3,12 @@ use crate::error::AppResult;
 use crate::bewertung::SetResult;
 use rusqlite::{params, Connection};
 
-/// Liefert (text, geaendert_am). `None` wenn noch keine Bemerkung gespeichert.
-pub fn get(conn: &Connection, schueler_id: i64) -> AppResult<Option<(String, String)>> {
-    let row: Option<(String, String)> = conn.query_row(
-        "SELECT text, geaendert_am FROM bemerkung WHERE schueler_id = ?1",
+/// Liefert (text, geaendert_am, editor_kuerzel). `None` wenn noch keine Bemerkung gespeichert.
+pub fn get(conn: &Connection, schueler_id: i64) -> AppResult<Option<(String, String, Option<String>)>> {
+    let row: Option<(String, String, Option<String>)> = conn.query_row(
+        "SELECT text, geaendert_am, editor_kuerzel FROM bemerkung WHERE schueler_id = ?1",
         params![schueler_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     ).ok();
     Ok(row)
 }
@@ -18,33 +18,35 @@ pub fn set(
     schueler_id: i64,
     text: &str,
     vorheriger_stand: Option<String>,
+    editor_kuerzel: Option<String>,
 ) -> AppResult<SetResult> {
     let tx = conn.transaction()?;
-    let server: Option<(String, String)> = tx.query_row(
-        "SELECT text, geaendert_am FROM bemerkung WHERE schueler_id = ?1",
+    let server: Option<(String, String, Option<String>)> = tx.query_row(
+        "SELECT text, geaendert_am, editor_kuerzel FROM bemerkung WHERE schueler_id = ?1",
         params![schueler_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     ).ok();
 
-    let inhalt_gleich = matches!(&server, Some((t, _)) if t == text);
+    let inhalt_gleich = matches!(&server, Some((t, _, _)) if t == text);
 
     let token_passt = match (&vorheriger_stand, &server) {
         (None, None) => true,
-        (Some(ts), Some((_, srv_ts))) if ts == srv_ts => true,
+        (Some(ts), Some((_, srv_ts, _))) if ts == srv_ts => true,
         _ => false,
     };
 
     if !token_passt && !inhalt_gleich {
-        let (_, sts) = server.clone().unwrap_or_default();
+        let (_, sts, skz) = server.clone().unwrap_or_default();
         tx.rollback()?;
         return Ok(SetResult::Konflikt {
             server_formulierung_id: None, // Bemerkung hat keine Formulierung; Frontend liest server_geaendert_am + holt Text via get()
             server_geaendert_am: sts,
+            server_editor_kuerzel: skz,
         });
     }
 
     if inhalt_gleich {
-        let (_, ts) = server.unwrap();
+        let (_, ts, _) = server.unwrap();
         tx.rollback()?;
         return Ok(SetResult::Ok { neuer_stand: ts });
     }
@@ -56,12 +58,13 @@ pub fn set(
     }
 
     tx.execute(
-        "INSERT INTO bemerkung(schueler_id, text, geaendert_am)
-         VALUES (?1, ?2, datetime('now'))
+        "INSERT INTO bemerkung(schueler_id, text, editor_kuerzel, geaendert_am)
+         VALUES (?1, ?2, ?3, datetime('now'))
          ON CONFLICT(schueler_id) DO UPDATE SET
             text = excluded.text,
+            editor_kuerzel = excluded.editor_kuerzel,
             geaendert_am = excluded.geaendert_am",
-        params![schueler_id, text],
+        params![schueler_id, text, editor_kuerzel],
     )?;
     let ts: String = tx.query_row(
         "SELECT geaendert_am FROM bemerkung WHERE schueler_id = ?1",
@@ -96,27 +99,33 @@ mod tests {
     #[test]
     fn set_neu_und_get() {
         let (_d, mut conn) = seed();
-        let r = set(&mut conn, 1, "Eine schöne Bemerkung.", None).unwrap();
+        let r = set(&mut conn, 1, "Eine schöne Bemerkung.", None, Some("MZ".into())).unwrap();
         assert!(matches!(r, SetResult::Ok { .. }));
-        let (text, _ts) = get(&conn, 1).unwrap().unwrap();
+        let (text, _ts, kz) = get(&conn, 1).unwrap().unwrap();
         assert_eq!(text, "Eine schöne Bemerkung.");
+        assert_eq!(kz, Some("MZ".into()));
     }
 
     #[test]
     fn set_konflikt_bei_alter_token() {
         let (_d, mut conn) = seed();
-        set(&mut conn, 1, "v1", None).unwrap();
-        let r = set(&mut conn, 1, "v2", Some("alter-token-1900-01-01 00:00:00".into())).unwrap();
-        assert!(matches!(r, SetResult::Konflikt { .. }));
+        set(&mut conn, 1, "v1", None, Some("MZ".into())).unwrap();
+        let r = set(&mut conn, 1, "v2", Some("alter-token-1900-01-01 00:00:00".into()), Some("NN".into())).unwrap();
+        match r {
+            SetResult::Konflikt { server_editor_kuerzel, .. } => {
+                assert_eq!(server_editor_kuerzel, Some("MZ".into()));
+            }
+            _ => panic!("erwartete Konflikt"),
+        }
     }
 
     #[test]
     fn set_idempotent_gleicher_inhalt() {
         let (_d, mut conn) = seed();
-        let r1 = set(&mut conn, 1, "v1", None).unwrap();
+        let r1 = set(&mut conn, 1, "v1", None, None).unwrap();
         let token = match r1 { SetResult::Ok { neuer_stand } => neuer_stand, _ => unreachable!() };
         // Anderer Token, gleicher Inhalt -> idempotent
-        let r2 = set(&mut conn, 1, "v1", Some("falsch".into())).unwrap();
+        let r2 = set(&mut conn, 1, "v1", Some("falsch".into()), None).unwrap();
         match r2 {
             SetResult::Ok { neuer_stand } => assert_eq!(neuer_stand, token),
             _ => panic!("erwartete Ok"),
@@ -126,9 +135,9 @@ mod tests {
     #[test]
     fn set_leerer_text_loescht_eintrag() {
         let (_d, mut conn) = seed();
-        let r1 = set(&mut conn, 1, "v1", None).unwrap();
+        let r1 = set(&mut conn, 1, "v1", None, None).unwrap();
         let token = match r1 { SetResult::Ok { neuer_stand } => neuer_stand, _ => unreachable!() };
-        set(&mut conn, 1, "", Some(token)).unwrap();
+        set(&mut conn, 1, "", Some(token), None).unwrap();
         assert!(get(&conn, 1).unwrap().is_none());
     }
 }
