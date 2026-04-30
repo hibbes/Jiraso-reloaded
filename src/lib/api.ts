@@ -278,11 +278,38 @@ export type SchuelerUebersicht = {
   gesamt_module: number;
 };
 
+export type VollstKategorie = {
+  kategorie_id: number;
+  kategorie_name: string;
+  bewertet: number;
+  gesamt: number;
+};
+
+export type VollstFach = {
+  fach_id: number;
+  fach_name: string;
+  fach_reihenfolge: number;
+  kategorien: VollstKategorie[];
+  bewertet: number;
+  gesamt: number;
+};
+
+export type VollstReport = {
+  klasse_name: string;
+  schuljahr_bezeichnung: string;
+  schueler_anzahl: number;
+  faecher: VollstFach[];
+  bewertet_gesamt: number;
+  gesamt_gesamt: number;
+};
+
 export const uebersicht = {
   schueler: (schuelerId: number) =>
     invoke<SchuelerUebersicht>('uebersicht_schueler', { schuelerId }),
   klasse: (klasseId: number) =>
-    invoke<SchuelerUebersicht[]>('uebersicht_klasse', { klasseId })
+    invoke<SchuelerUebersicht[]>('uebersicht_klasse', { klasseId }),
+  vollstaendigkeit: (klasseId: number) =>
+    invoke<VollstReport>('uebersicht_vollstaendigkeit', { klasseId })
 };
 
 // --- Goodies (Tageszitate) ---

@@ -117,6 +117,7 @@ pub fn run() {
             commands::klassenraum_schueler,
             commands::uebersicht_schueler,
             commands::uebersicht_klasse,
+            commands::uebersicht_vollstaendigkeit,
             commands::goodies_zitat,
             commands::bug_report_submit,
         ])

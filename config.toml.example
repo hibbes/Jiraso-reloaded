@@ -22,3 +22,11 @@ mode    = "random"  # random | zitat_only | fun_fact_only | achievement_only
 # Sessions werden automatisch verworfen, wenn sie aelter als stale_hours sind
 stale_hours = 8
 max_parallel = 2
+
+# Optional: Kaefer-Knopf (Bug-Report-UI) postet Issues direkt ans GitHub-Repo.
+# Ohne Token faellt es auf einen mailto-Link zurueck.
+# Token: github.com/settings/tokens, fine-grained, Resource Owner = hibbes,
+# Repo = Jiraso-reloaded, Permission = "Issues: Read and write" reicht.
+[bug_report]
+repo         = "hibbes/Jiraso-reloaded"
+github_token = ""

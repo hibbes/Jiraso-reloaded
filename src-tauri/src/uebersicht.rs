@@ -113,6 +113,126 @@ pub fn schueler_uebersicht(conn: &Connection, schueler_id: i64) -> AppResult<Sch
     })
 }
 
+/// Vollstaendigkeits-Eintrag pro Kategorie innerhalb eines Fachs:
+/// wieviele SuS sind in dieser Klasse fuer dieses (Fach, Kategorie)-Paar
+/// schon bewertet (geaendert_am IS NOT NULL, egal ob mit oder ohne
+/// Formulierung), und wieviele insgesamt.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VollstKategorie {
+    pub kategorie_id: i64,
+    pub kategorie_name: String,
+    pub bewertet: usize,
+    pub gesamt: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VollstFach {
+    pub fach_id: i64,
+    pub fach_name: String,
+    pub fach_reihenfolge: i64,
+    pub kategorien: Vec<VollstKategorie>,
+    /// Summe ueber alle Kategorien dieses Fachs.
+    pub bewertet: usize,
+    pub gesamt: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VollstReport {
+    pub klasse_name: String,
+    pub schuljahr_bezeichnung: String,
+    pub schueler_anzahl: usize,
+    pub faecher: Vec<VollstFach>,
+    pub bewertet_gesamt: usize,
+    pub gesamt_gesamt: usize,
+}
+
+pub fn vollstaendigkeit_klasse(conn: &Connection, klasse_id: i64) -> AppResult<VollstReport> {
+    let (klasse_name, schuljahr_bezeichnung, schuljahr_id): (String, String, i64) =
+        conn.query_row(
+            "SELECT kl.name, sj.bezeichnung, sj.id
+             FROM klasse kl JOIN schuljahr sj ON sj.id = kl.schuljahr_id
+             WHERE kl.id = ?1",
+            params![klasse_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?;
+
+    let schueler_anzahl: usize = conn.query_row(
+        "SELECT COUNT(*) FROM schueler WHERE klasse_id = ?1",
+        params![klasse_id],
+        |r| r.get::<_, i64>(0),
+    )? as usize;
+
+    let mut faecher_stmt = conn.prepare(
+        "SELECT id, name, reihenfolge FROM fach
+         WHERE schuljahr_id = ?1 AND aktiv = 1
+         ORDER BY reihenfolge",
+    )?;
+    let faecher_raw: Vec<(i64, String, i64)> = faecher_stmt
+        .query_map(params![schuljahr_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<Result<_, _>>()?;
+
+    let mut kat_stmt = conn.prepare(
+        "SELECT id, name FROM kategorie
+         WHERE schuljahr_id = ?1 AND aktiv = 1
+         ORDER BY reihenfolge",
+    )?;
+    let kategorien_raw: Vec<(i64, String)> = kat_stmt
+        .query_map(params![schuljahr_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+
+    let mut bew_stmt = conn.prepare(
+        "SELECT COUNT(*) FROM bewertung b
+         JOIN schueler s ON s.id = b.schueler_id
+         WHERE s.klasse_id = ?1 AND b.fach_id = ?2 AND b.kategorie_id = ?3
+           AND b.geaendert_am IS NOT NULL",
+    )?;
+
+    let mut faecher = Vec::with_capacity(faecher_raw.len());
+    let mut bewertet_gesamt = 0usize;
+    let mut gesamt_gesamt = 0usize;
+
+    for (fach_id, fach_name, fach_reihenfolge) in faecher_raw {
+        let mut kategorien_v = Vec::with_capacity(kategorien_raw.len());
+        let mut fach_bewertet = 0usize;
+        let mut fach_gesamt = 0usize;
+        for (kat_id, kat_name) in &kategorien_raw {
+            let bewertet: i64 = bew_stmt.query_row(
+                params![klasse_id, fach_id, kat_id],
+                |r| r.get(0),
+            )?;
+            let bewertet = bewertet as usize;
+            let gesamt = schueler_anzahl;
+            fach_bewertet += bewertet;
+            fach_gesamt += gesamt;
+            kategorien_v.push(VollstKategorie {
+                kategorie_id: *kat_id,
+                kategorie_name: kat_name.clone(),
+                bewertet,
+                gesamt,
+            });
+        }
+        bewertet_gesamt += fach_bewertet;
+        gesamt_gesamt += fach_gesamt;
+        faecher.push(VollstFach {
+            fach_id,
+            fach_name,
+            fach_reihenfolge,
+            kategorien: kategorien_v,
+            bewertet: fach_bewertet,
+            gesamt: fach_gesamt,
+        });
+    }
+
+    Ok(VollstReport {
+        klasse_name,
+        schuljahr_bezeichnung,
+        schueler_anzahl,
+        faecher,
+        bewertet_gesamt,
+        gesamt_gesamt,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,5 +369,63 @@ mod tests {
         conn.execute("INSERT INTO klasse(schuljahr_id, name) VALUES (1, '5b')", []).unwrap();
         let alle = klassen_uebersicht(&conn, 2).unwrap();
         assert!(alle.is_empty());
+    }
+
+    #[test]
+    fn vollstaendigkeit_leer_zaehlt_alle_zellen_unbewertet() {
+        let (_d, conn) = seed();
+        conn.execute("INSERT INTO schueler(klasse_id, vorname, nachname) VALUES (1, 'Bert', 'Birne')", []).unwrap();
+        let r = vollstaendigkeit_klasse(&conn, 1).unwrap();
+        assert_eq!(r.klasse_name, "5a");
+        assert_eq!(r.schueler_anzahl, 2);
+        assert_eq!(r.faecher.len(), 2); // Mathe + Deutsch
+        assert_eq!(r.bewertet_gesamt, 0);
+        assert_eq!(r.gesamt_gesamt, 2 * 2 * 2); // 2 SuS x 2 Faecher x 2 Kategorien
+        for f in &r.faecher {
+            assert_eq!(f.kategorien.len(), 2);
+            for k in &f.kategorien {
+                assert_eq!(k.bewertet, 0);
+                assert_eq!(k.gesamt, 2);
+            }
+        }
+    }
+
+    #[test]
+    fn vollstaendigkeit_zaehlt_einzelne_bewertungen_korrekt() {
+        let (_d, conn) = seed();
+        conn.execute("INSERT INTO schueler(klasse_id, vorname, nachname) VALUES (1, 'Bert', 'Birne')", []).unwrap();
+        // Anna in Mathe-Lernbereitschaft bewertet (mit Formulierung)
+        conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id, geaendert_am)
+             VALUES (1, 1, 1, 1, '2026-04-30 10:00:00')",
+            [],
+        ).unwrap();
+        // Bert in Mathe-Lernbereitschaft bewertet (keine Angabe = NULL formulierung)
+        conn.execute(
+            "INSERT INTO bewertung(schueler_id, fach_id, kategorie_id, formulierung_id, geaendert_am)
+             VALUES (2, 1, 1, NULL, '2026-04-30 10:01:00')",
+            [],
+        ).unwrap();
+        let r = vollstaendigkeit_klasse(&conn, 1).unwrap();
+        let mathe = r.faecher.iter().find(|f| f.fach_name == "Mathe").unwrap();
+        let lern = mathe.kategorien.iter().find(|k| k.kategorie_name == "Lernbereitschaft").unwrap();
+        assert_eq!(lern.bewertet, 2, "Anna+Bert in Mathe-Lernbereitschaft");
+        assert_eq!(lern.gesamt, 2);
+        let sorg = mathe.kategorien.iter().find(|k| k.kategorie_name == "Sorgfalt").unwrap();
+        assert_eq!(sorg.bewertet, 0);
+        assert_eq!(mathe.bewertet, 2);
+        assert_eq!(mathe.gesamt, 4);
+        let deutsch = r.faecher.iter().find(|f| f.fach_name == "Deutsch").unwrap();
+        assert_eq!(deutsch.bewertet, 0);
+        assert_eq!(r.bewertet_gesamt, 2);
+    }
+
+    #[test]
+    fn vollstaendigkeit_ignoriert_inaktive_faecher() {
+        let (_d, conn) = seed();
+        conn.execute("UPDATE fach SET aktiv = 0 WHERE id = 2", []).unwrap();
+        let r = vollstaendigkeit_klasse(&conn, 1).unwrap();
+        assert_eq!(r.faecher.len(), 1);
+        assert_eq!(r.faecher[0].fach_name, "Mathe");
     }
 }

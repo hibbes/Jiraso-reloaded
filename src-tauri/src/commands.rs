@@ -405,7 +405,7 @@ pub fn klassenraum_schueler(klasse_id: i64, state: tauri::State<AppState>) -> Ap
 
 // --- Modul-Uebersicht (read-only Aggregat pro Schueler:in) ---
 
-use crate::uebersicht::{self, SchuelerUebersicht};
+use crate::uebersicht::{self, SchuelerUebersicht, VollstReport};
 
 #[tauri::command]
 pub fn uebersicht_schueler(schueler_id: i64, state: tauri::State<AppState>) -> AppResult<SchuelerUebersicht> {
@@ -419,6 +419,13 @@ pub fn uebersicht_klasse(klasse_id: i64, state: tauri::State<AppState>) -> AppRe
     require_lehrer(&state)?;
     let conn = open_db(&state)?;
     uebersicht::klassen_uebersicht(&conn, klasse_id)
+}
+
+#[tauri::command]
+pub fn uebersicht_vollstaendigkeit(klasse_id: i64, state: tauri::State<AppState>) -> AppResult<VollstReport> {
+    require_lehrer(&state)?;
+    let conn = open_db(&state)?;
+    uebersicht::vollstaendigkeit_klasse(&conn, klasse_id)
 }
 
 // --- Goodies (Tageszitate) ---

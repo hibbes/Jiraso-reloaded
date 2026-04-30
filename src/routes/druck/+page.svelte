@@ -137,13 +137,15 @@
       </section>
 
       <div class="druck-row">
-        <p class="zaehler">{sichtbar.length} von {uebersichten.length} ausgewählt</p>
+        <p class="zaehler">{sichtbar.length} von {uebersichten.length} Bögen ausgewählt</p>
         <button class="druck" onclick={drucken} disabled={sichtbar.length === 0}>
-          🖨️ Drucken / als PDF speichern
+          📄 Klasse als ein PDF speichern
         </button>
         <p class="pdf-hinweis">
-          Im Druck-Dialog „Microsoft Print to PDF" oder „Als PDF speichern" auswählen.
-          Eine Seite pro Schüler:in.
+          Öffnet den Druck-Dialog. Dort als Drucker <strong>„Microsoft Print to PDF"</strong>
+          (oder <strong>„Als PDF speichern"</strong>) wählen — alle {sichtbar.length}
+          ausgewählten Bögen landen in <em>einer</em> PDF-Datei, eine A4-Seite pro
+          Schüler:in. Für echten Papier-Druck einfach den normalen Drucker wählen.
         </p>
       </div>
     {:else if geladen && uebersichten.length === 0}
